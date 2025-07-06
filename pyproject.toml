@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling >= 1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "curve-dao"
+version = "0.1.0"
+authors = [
+    { name = "mo", email = "moanonresearch@gmail.com" },
+]
+description = "A Python package to simplify the creation, validation and simulation of Curve DAO votes"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "titanoboa==0.2.6",
+    "python-dotenv>=1.0.0",
+    "hexbytes>=0.3.0",
+    "rich>=13.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
