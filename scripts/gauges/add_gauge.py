@@ -19,7 +19,7 @@ def main():
         description="Add new gauge"
     )
     
-    if vote.execute():
+    if vote.create_vote():
         print(f"✅ Success! Vote ID: {vote.vote_id}")
         if args.calldata and vote.calldata:
             print(f"📄 Calldata: {vote.calldata}")

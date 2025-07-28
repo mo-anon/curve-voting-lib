@@ -9,7 +9,7 @@ from .core.config import get_config
 from .core.create_vote import create_vote
 
 # Template imports
-from .templates.gauge import AddGauge, KillGauge
+from .templates.gauge import AddGauge
 
 # Utility imports
 from .utils.constants import DAO, get_dao_parameters
@@ -22,7 +22,6 @@ __all__ = [
     "get_config",
     "create_vote", 
     "AddGauge",
-    "KillGauge",
     "DAO",
     "get_dao_parameters",
 ] 
