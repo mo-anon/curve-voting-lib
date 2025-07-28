@@ -7,7 +7,7 @@ from src.core.create_vote import create_vote
 class AddGauge(VoteTemplate):
     """Add a new gauge to the Curve DAO"""
     
-    def __init__(self, config: dict, gauge_address: str, weight: int = 0, type_id: int = 0, description: str = ""):
+    def __init__(self, config: dict, gauge_address: str, weight: int = 0, type_id: int = 0, description: str = "", simulation: bool = True):
         """
         Initialize an AddGauge vote
         
@@ -17,11 +17,13 @@ class AddGauge(VoteTemplate):
             weight: Weight for the gauge (default: 0)
             type_id: Type ID for the gauge (default: 0)
             description: Description of the vote
+            simulation: If True, simulate the vote. If False, create live vote with browser wallet
         """
         super().__init__(config, description)
         self.gauge_address = gauge_address
         self.weight = weight
         self.type_id = type_id
+        self.simulation = simulation
         
         # Prepare the vote payload
         self.vote_payload = [
@@ -116,11 +118,20 @@ class AddGauge(VoteTemplate):
         
         print("✅ Simulation passed, creating live vote...")
         return self._create_vote(simulation=False)
+    
+    def execute(self) -> bool:
+        """
+        Execute based on simulation parameter
+        """
+        if self.simulation:
+            return self.simulate()
+        else:
+            return self.create_live_vote()
 
 class KillGauge(VoteTemplate):
     """Kill an existing gauge in the Curve DAO"""
     
-    def __init__(self, config: dict, gauge_address: str, description: str = ""):
+    def __init__(self, config: dict, gauge_address: str, description: str = "", simulation: bool = True):
         """
         Initialize a KillGauge vote
         
@@ -128,9 +139,11 @@ class KillGauge(VoteTemplate):
             config: Vote configuration dictionary
             gauge_address: Address of the gauge to kill
             description: Description of the vote
+            simulation: If True, simulate the vote. If False, create live vote with browser wallet
         """
         super().__init__(config, description)
         self.gauge_address = gauge_address
+        self.simulation = simulation
         
         # Prepare the vote payload
         self.vote_payload = [
@@ -222,3 +235,12 @@ class KillGauge(VoteTemplate):
         
         print("✅ Simulation passed, creating live vote...")
         return self._create_vote(simulation=False)
+    
+    def execute(self) -> bool:
+        """
+        Execute based on simulation parameter
+        """
+        if self.simulation:
+            return self.simulate()
+        else:
+            return self.create_live_vote()
