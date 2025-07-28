@@ -1,31 +1,31 @@
 import sys
 import argparse
-from src.core.config import VoteConfig
+from src.core.config import get_config
 from src.templates.gauge import AddGauge
 
 def main():
-    parser = argparse.ArgumentParser(description="Simulate and optionally return calldata for adding a gauge.")
+    parser = argparse.ArgumentParser(description="Add a gauge to the Gauge Controller")
     parser.add_argument('--calldata', action='store_true', help='Return the EVM script (calldata) for the vote')
+    parser.add_argument('--gauge-address', type=str, default="0xeB896fB7D1AaE921d586B0E5a037496aFd3E2412", help='Gauge address to add')
     args = parser.parse_args()
 
-    config = VoteConfig(is_forked=True)
-    gauge = AddGauge(
+    config = get_config()
+    
+    vote = AddGauge(
         config=config,
-        gauge_address="0xeB896fB7D1AaE921d586B0E5a037496aFd3E2412",
+        gauge_address=args.gauge_address,
         weight=0,
         type_id=0,
-        description="Add new gauge for testing"
+        description="Add new gauge"
     )
-    if not gauge.validate(show_info=True):
-        print("Validation failed:", gauge.validate().errors)
+    
+    if vote.create_vote():
+        print(f"✅ Success! Vote ID: {vote.vote_id}")
+        if args.calldata and vote.calldata:
+            print(f"📄 Calldata: {vote.calldata}")
+    else:
+        print(f"❌ Failed: {vote.error}")
         sys.exit(1)
-    sim_result = gauge.simulate(show_info=True, skip_validation=True, return_calldata=args.calldata)
-    if not sim_result:
-        print("Simulation failed:", sim_result.message)
-        sys.exit(1)
-    print("Simulation successful!")
-    if args.calldata and sim_result.details.get("evm_script"):
-        print("EVM Script:", sim_result.details["evm_script"])
 
 if __name__ == "__main__":
     main()
