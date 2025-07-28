@@ -42,8 +42,8 @@ def create_vote(
         Exception: If vote creation fails
     """
     
-    if not simulation and not vote_creator_address:
-        raise ValueError("vote_creator_address is required for live posting, or simulation=True")
+    # For browser wallet mode, we don't need vote_creator_address
+    # The validation is handled by boa.set_browser_env() when simulation=False
     
     logger.info(f"Creating vote in {'simulation' if simulation else 'live'} mode")
     
