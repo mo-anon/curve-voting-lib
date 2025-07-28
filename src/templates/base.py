@@ -60,13 +60,13 @@ class VoteTemplate(Vote):
             self.error = str(e)
             return False
     
-    def execute(self, simulation: bool = True) -> bool:
+    def create_vote(self, simulation: bool = True) -> bool:
         """
-        Execute the vote (validate, simulate, create)
+        Create the vote (validate, simulate, create)
         Args:
             simulation: If True, simulate the vote. If False, connect to browser wallet for live voting
         Returns:
-            bool: True if execution succeeds, False otherwise
+            bool: True if vote creation succeeds, False otherwise
         """
         if not self.validate():
             return False
