@@ -84,7 +84,6 @@ class AddGauge(VoteTemplate):
             # If not simulation, connect to browser wallet
             if not simulation:
                 boa.set_browser_env()
-                print("🔗 Connected to browser wallet")
             
             vote_id = create_vote(
                 dao=DAO.OWNERSHIP,
@@ -103,31 +102,60 @@ class AddGauge(VoteTemplate):
             return False
     
     def simulate(self, verbose: bool = False) -> bool:
-        """
-        Simulate the vote creation
-        """
+        """Simulate the vote creation"""
         if verbose:
-            print("🔄 Simulating vote creation...")
+            print("Simulating vote creation...")
             print(f"   Gauge: {self.gauge_address}")
             print(f"   Weight: {self.weight}")
             print(f"   Type ID: {self.type_id}")
             print(f"   Target: Gauge Controller ({GAUGE_CONTROLLER})")
+            print("\nRunning validations...")
+        
+        # Validate inputs
+        if not self._validate():
+            if verbose:
+                print(f"   Validation failed: {self.error}")
+            return False
+        if verbose:
+            print("   Input validation passed")
+        
+        # Check gauge status
+        if verbose:
+            print("\nChecking gauge status...")
+        gauge_status = self.check_gauge_status()
+        if verbose:
+            print(f"   Gauge exists: {gauge_status['exists']}")
+            if 'gauge_type' in gauge_status:
+                print(f"   Current gauge type: {gauge_status['gauge_type']}")
+                print(f"   Current weight: {gauge_status['weight']}")
+            if 'error' in gauge_status:
+                print(f"   Query error: {gauge_status['error']}")
+            print(f"   Can be added: {gauge_status['can_add']}")
+        
+        if not gauge_status['can_add']:
+            if verbose:
+                print("   Gauge cannot be added (already exists or invalid)")
+            return False
+        if verbose:
+            print("   Gauge can be added")
+        
+        # Simulate the actual vote creation
+        if verbose:
+            print("\nSimulating vote creation on fork...")
         
         return self._create_vote(simulation=True)
     
     def create_live_vote(self, verbose: bool = False) -> bool:
-        """
-        Create a live vote with browser wallet
-        """
+        """Create a live vote with browser wallet"""
         if verbose:
-            print("🔍 Running safety checks before live vote...")
+            print("Running safety checks before live vote...")
         
-        # First simulate to make sure everything is valid
         if not self.simulate(verbose=verbose):
             return False
         
         if verbose:
-            print("✅ Simulation passed, creating live vote...")
+            print("Simulation passed, creating live vote...")
+        
         return self._create_vote(simulation=False)
     
     def create_vote(self, verbose: bool = False) -> bool:
@@ -350,7 +378,6 @@ class KillGauge(VoteTemplate):
             # If not simulation, connect to browser wallet
             if not simulation:
                 boa.set_browser_env()
-                print("🔗 Connected to browser wallet")
             
             vote_id = create_vote(
                 dao=DAO.OWNERSHIP,
@@ -382,7 +409,7 @@ class KillGauge(VoteTemplate):
         if not self.simulate():
             return False
         
-        print("✅ Simulation passed, creating live vote...")
+        print("Simulation passed, creating live vote...")
         return self._create_vote(simulation=False)
     
     def create_vote(self, verbose: bool = False) -> bool:
