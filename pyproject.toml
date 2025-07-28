@@ -12,9 +12,10 @@ description = "A Python package to simplify the creation, validation and simulat
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
-    "titanoboa>=0.2.6",
+    "titanoboa==0.2.3",
     "python-dotenv>=1.0.0",
     "hexbytes>=0.3.0",
+    "vyper==0.4.0",
 ]
 
 [tool.hatch.build.targets.wheel]
