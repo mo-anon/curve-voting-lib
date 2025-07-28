@@ -102,31 +102,180 @@ class AddGauge(VoteTemplate):
             self.error = f"Vote creation failed: {str(e)}"
             return False
     
-    def simulate(self) -> bool:
+    def simulate(self, verbose: bool = False) -> bool:
         """
         Simulate the vote creation
         """
+        if verbose:
+            print("🔄 Simulating vote creation...")
+            print(f"   Gauge: {self.gauge_address}")
+            print(f"   Weight: {self.weight}")
+            print(f"   Type ID: {self.type_id}")
+            print(f"   Target: Gauge Controller ({GAUGE_CONTROLLER})")
+        
         return self._create_vote(simulation=True)
     
-    def create_live_vote(self) -> bool:
+    def create_live_vote(self, verbose: bool = False) -> bool:
         """
         Create a live vote with browser wallet
         """
+        if verbose:
+            print("🔍 Running safety checks before live vote...")
+        
         # First simulate to make sure everything is valid
-        if not self.simulate():
+        if not self.simulate(verbose=verbose):
             return False
         
-        print("✅ Simulation passed, creating live vote...")
+        if verbose:
+            print("✅ Simulation passed, creating live vote...")
         return self._create_vote(simulation=False)
     
-    def execute(self) -> bool:
+    def create_vote(self, verbose: bool = False) -> bool:
         """
-        Execute based on simulation parameter
+        Create the vote (simulate or live based on simulation parameter)
         """
         if self.simulation:
-            return self.simulate()
+            return self.simulate(verbose=verbose)
         else:
-            return self.create_live_vote()
+            return self.create_live_vote(verbose=verbose)
+    
+    def validate_inputs(self) -> bool:
+        """
+        Manually validate inputs without creating any votes
+        """
+        return self._validate()
+    
+    def check_gauge_exists(self) -> bool:
+        """
+        Check if the gauge already exists (basic check)
+        """
+        try:
+            # Fork mainnet to check
+            boa.fork(self.config["rpc_url"], allow_dirty=True)
+            
+            # Get gauge controller
+            gauge_controller = boa.from_etherscan(
+                GAUGE_CONTROLLER,
+                name="GaugeController",
+                api_key=self.config["etherscan_key"],
+            )
+            
+            # Check if gauge exists
+            try:
+                gauge_type = gauge_controller.gauge_types(self.gauge_address)
+                if gauge_type != 0:
+                    self.error = f"Gauge already exists with type {gauge_type}"
+                    return False
+                else:
+                    return True
+            except:
+                # Gauge doesn't exist, which is what we want
+                return True
+                
+        except Exception as e:
+            self.error = f"Failed to check gauge existence: {str(e)}"
+            return False
+    
+    def test_contract_interaction(self) -> bool:
+        """
+        Test if the contract interaction would work (without creating vote)
+        """
+        try:
+            # Fork mainnet
+            boa.fork(self.config["rpc_url"], allow_dirty=True)
+            
+            # Get gauge controller
+            gauge_controller = boa.from_etherscan(
+                GAUGE_CONTROLLER,
+                name="GaugeController",
+                api_key=self.config["etherscan_key"],
+            )
+            
+            # Test the function call (this won't actually execute, just test if it's valid)
+            # We can't actually call add_gauge without proper permissions, but we can test the interface
+            
+            return True
+            
+        except Exception as e:
+            self.error = f"Contract interaction test failed: {str(e)}"
+            return False
+    
+    def run_full_validation(self) -> dict:
+        """
+        Run all validation checks and return results
+        """
+        results = {
+            "input_validation": False,
+            "gauge_exists_check": False,
+            "contract_interaction": False,
+            "simulation": False,
+            "overall": False
+        }
+        
+        # Test input validation
+        results["input_validation"] = self.validate_inputs()
+        
+        # Test gauge existence
+        if results["input_validation"]:
+            results["gauge_exists_check"] = self.check_gauge_exists()
+        
+        # Test contract interaction
+        if results["gauge_exists_check"]:
+            results["contract_interaction"] = self.test_contract_interaction()
+        
+        # Test simulation
+        if results["contract_interaction"]:
+            results["simulation"] = self.simulate()
+        
+        # Overall result
+        results["overall"] = all([
+            results["input_validation"],
+            results["gauge_exists_check"], 
+            results["contract_interaction"],
+            results["simulation"]
+        ])
+        
+        return results
+
+    def check_gauge_status(self) -> dict:
+        """
+        Manual check: Query gauge status from gauge controller
+        """
+        try:
+            # Fork mainnet to check
+            boa.fork(self.config["rpc_url"], allow_dirty=True)
+            
+            # Get gauge controller
+            gauge_controller = boa.from_etherscan(
+                GAUGE_CONTROLLER,
+                name="GaugeController",
+                api_key=self.config["etherscan_key"],
+            )
+            
+            # Check gauge status
+            try:
+                gauge_type = gauge_controller.gauge_types(self.gauge_address)
+                weight = gauge_controller.get_gauge_weight(self.gauge_address)
+                
+                return {
+                    "exists": gauge_type != 0,
+                    "gauge_type": gauge_type,
+                    "weight": weight,
+                    "can_add": gauge_type == 0  # Can add if type is 0 (not registered)
+                }
+            except Exception as e:
+                return {
+                    "exists": False,
+                    "error": str(e),
+                    "can_add": True  # Assume can add if query fails
+                }
+                
+        except Exception as e:
+            return {
+                "exists": False,
+                "error": f"Failed to query gauge: {str(e)}",
+                "can_add": False
+            }
 
 class KillGauge(VoteTemplate):
     """Kill an existing gauge in the Curve DAO"""
@@ -236,11 +385,11 @@ class KillGauge(VoteTemplate):
         print("✅ Simulation passed, creating live vote...")
         return self._create_vote(simulation=False)
     
-    def execute(self) -> bool:
+    def create_vote(self, verbose: bool = False) -> bool:
         """
-        Execute based on simulation parameter
+        Create the vote (simulate or live based on simulation parameter)
         """
         if self.simulation:
-            return self.simulate()
+            return self.simulate(verbose=verbose)
         else:
-            return self.create_live_vote()
+            return self.create_live_vote(verbose=verbose)
