@@ -124,7 +124,7 @@ class AddGauge(VoteTemplate):
             print("\nChecking gauge status...")
         gauge_status = self.check_gauge_status()
         if verbose:
-            print(f"   Gauge exists: {gauge_status['exists']}")
+            print(f"   Gauge already exists: {gauge_status['exists']}")
             if 'gauge_type' in gauge_status:
                 print(f"   Current gauge type: {gauge_status['gauge_type']}")
                 print(f"   Current weight: {gauge_status['weight']}")
@@ -141,7 +141,7 @@ class AddGauge(VoteTemplate):
         
         # Simulate the actual vote creation
         if verbose:
-            print("\nSimulating vote creation on fork...")
+            print("\nCreating vote on fork...")
         
         return self._create_vote(simulation=True)
     
@@ -154,7 +154,7 @@ class AddGauge(VoteTemplate):
             return False
         
         if verbose:
-            print("Simulation passed, creating live vote...")
+            print("Safety checks passed, creating live vote...")
         
         return self._create_vote(simulation=False)
     
@@ -282,8 +282,13 @@ class AddGauge(VoteTemplate):
             
             # Check gauge status
             try:
-                gauge_type = gauge_controller.gauge_types(self.gauge_address)
-                weight = gauge_controller.get_gauge_weight(self.gauge_address)
+                # Suppress Vyper debug output
+                import contextlib
+                import io
+                
+                with contextlib.redirect_stdout(io.StringIO()):
+                    gauge_type = gauge_controller.gauge_types(self.gauge_address)
+                    weight = gauge_controller.get_gauge_weight(self.gauge_address)
                 
                 return {
                     "exists": gauge_type != 0,
