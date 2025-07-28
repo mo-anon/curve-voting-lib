@@ -18,6 +18,7 @@ def create_vote(
         is_simulation: bool = True,
         vote_creator_address: Optional[str] = None,
         return_calldata: bool = False,
+        simulation: bool = True,
 ) -> int | Tuple[int, HexBytes]:
     """
     Create a Curve DAO vote
@@ -28,9 +29,10 @@ def create_vote(
         description: Description of the vote
         etherscan_api_key: Etherscan API key for contract verification
         pinata_token: Pinata token for IPFS operations
-        is_simulation: Whether to simulate the vote (True) or post it live (False)
+        is_simulation: Whether to simulate the vote (True) or post it live (False) - DEPRECATED, use simulation
         vote_creator_address: Address of the vote creator (required for live posting)
         return_calldata: If True, return (vote_id, evm_script) where evm_script is the calldata/EVM script for the vote. Otherwise, return just vote_id.
+        simulation: If True, simulate the vote. If False, connect to browser wallet for live voting
         
     Returns:
         int: Vote ID
@@ -40,10 +42,10 @@ def create_vote(
         Exception: If vote creation fails
     """
     
-    if not is_simulation and not vote_creator_address:
-        raise ValueError("vote_creator_address is required for live posting")
+    if not simulation and not vote_creator_address:
+        raise ValueError("vote_creator_address is required for live posting, or simulation=True")
     
-    logger.info(f"Creating vote in {'simulation' if is_simulation else 'live'} mode")
+    logger.info(f"Creating vote in {'simulation' if simulation else 'live'} mode")
     
     # Prepare the EVM script
     evm_script = prepare_evm_script(dao, actions, etherscan_api_key)
@@ -63,14 +65,19 @@ def create_vote(
     logger.info(f"Voting contract loaded: {voting.address}")
 
     # Create the vote
-    if is_simulation:
+    if simulation:
         # Use a test address for simulation
         with boa.env.prank('0xaE34c9738060137Ab0580587e813d1cfe637F506'):
             vote_id = voting.newVote(HexBytes(evm_script), vote_description_data, False, False)
             logger.info(f"Simulation vote created with ID: {vote_id}")
     else:
-        # TODO: Implement live posting
-        pass
+        # Live voting
+        # Connect to browser wallet
+        boa.set_browser_env()
+        logger.info("Connected to browser wallet")
+        
+        vote_id = voting.newVote(HexBytes(evm_script), vote_description_data, False, False)
+        logger.info(f"Live vote created with ID: {vote_id}")
 
     if return_calldata:
         return vote_id, evm_script

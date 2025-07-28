@@ -3,7 +3,7 @@ requires = ["hatchling >= 1.26"]
 build-backend = "hatchling.build"
 
 [project]
-name = "curve-dao"
+name = "curve-voting-lib"
 version = "0.1.0"
 authors = [
     { name = "mo", email = "moanonresearch@gmail.com" },
@@ -15,7 +15,7 @@ dependencies = [
     "titanoboa==0.2.6",
     "python-dotenv>=1.0.0",
     "hexbytes>=0.3.0",
-    "rich>=13.0.0",
+    "vyper==0.4.0",
 ]
 
 [tool.hatch.build.targets.wheel]
