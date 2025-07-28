@@ -4,7 +4,7 @@ from src.core.config import get_config
 from src.templates.gauge import AddGauge
 
 def main():
-    parser = argparse.ArgumentParser(description="Add a gauge to Curve DAO")
+    parser = argparse.ArgumentParser(description="Add a gauge to the Gauge Controller")
     parser.add_argument('--calldata', action='store_true', help='Return the EVM script (calldata) for the vote')
     parser.add_argument('--gauge-address', type=str, default="0xeB896fB7D1AaE921d586B0E5a037496aFd3E2412", help='Gauge address to add')
     args = parser.parse_args()

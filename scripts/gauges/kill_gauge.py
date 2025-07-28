@@ -4,7 +4,7 @@ from src.core.config import get_config
 from src.templates.gauge import KillGauge
 
 def main():
-    parser = argparse.ArgumentParser(description="Kill a gauge in Curve DAO")
+    parser = argparse.ArgumentParser(description="Kill a gauge from the Gauge Controller")
     parser.add_argument('--calldata', action='store_true', help='Return the EVM script (calldata) for the vote')
     parser.add_argument('--gauge-address', type=str, required=True, help='Gauge address to kill')
     args = parser.parse_args()
