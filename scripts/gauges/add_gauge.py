@@ -1,7 +1,7 @@
 import sys
 import argparse
-from src.core.config import get_config
-from src.templates.gauge import AddGauge
+from voting.core.config import get_config
+from voting.templates.gauge import AddGauge
 
 def main():
     parser = argparse.ArgumentParser(description="Add a gauge to the Gauge Controller")

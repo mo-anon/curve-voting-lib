@@ -1,0 +1,203 @@
+import contextlib
+import os
+import boa
+import logging
+from dotenv import load_dotenv
+from hexbytes import HexBytes
+from boa.contracts.abi.abi_contract import ABIFunction
+from voting.config import DAOParameters
+from requests import request
+import hashlib
+import json
+from datetime import datetime
+
+logger = logging.getLogger(__name__)
+load_dotenv()
+
+
+def _pin_to_ipfs(description: str) -> str:
+    # Create cache directory if it doesn't exist
+    cache_dir = os.path.expanduser("~/.cache/curve-voting-lib")
+    os.makedirs(cache_dir, exist_ok=True)
+    cache_file = os.path.join(cache_dir, "ipfs_cache.json")
+    
+    # Create a hash of the description for cache key
+    description_hash = hashlib.sha256(description.encode()).hexdigest()
+    
+    # Load existing cache
+    cache = {}
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, 'r') as f:
+                cache = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            logger.warning("Could not load IPFS cache, starting fresh")
+            cache = {}
+    
+    # Check if description is already cached
+    if description_hash in cache:
+        ipfs_hash = cache[description_hash]
+        logger.info(f"Found cached IPFS hash for description: {ipfs_hash}")
+        return ipfs_hash
+    
+    pinata_token = os.getenv("PINATA_JWT")
+    if not pinata_token:
+        raise ValueError("PINATA_JWT environment variable is required")
+
+    # TODO this is a legacy endpoint and should be updated before it breaks
+    url = "https://api.pinata.cloud/pinning/pinJSONToIPFS"
+    headers = {
+        "Authorization": f"Bearer {pinata_token}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "pinataContent": {"text": description},
+        "pinataMetadata": {"name": f"vote_description_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"},
+        "pinataOptions": {"cidVersion": 1},
+    }
+
+    response = request("POST", url, json=payload, headers=headers)
+
+    if not (200 <= response.status_code < 400):
+        logger.error(f"IPFS pinning failed with status {response.status_code}: {response.text}")
+        raise Exception(f"Failed to pin to IPFS: HTTP {response.status_code}")
+    
+    response_data = response.json()
+    ipfs_hash = response_data["IpfsHash"]
+    logger.info(f"Successfully pinned vote description to IPFS: {ipfs_hash}")
+    
+    # Cache the result
+    cache[description_hash] = ipfs_hash
+    try:
+        with open(cache_file, 'w') as f:
+            json.dump(cache, f, indent=2)
+        logger.info(f"Cached IPFS hash for future use")
+    except IOError as e:
+        logger.warning(f"Could not save IPFS cache: {e}")
+    
+    return ipfs_hash
+
+
+def _prepare_evm_script(dao: DAOParameters, actions):
+    # TODO move abi into file
+    aragon_agent_abi = boa.loads_abi(name="AragonAgent", json_str='[{"constant":true,"inputs":[],"name":"ADD_PROTECTED_TOKEN_ROLE","outputs":[{"name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"_interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"pure","type":"function"},{"constant":true,"inputs":[],"name":"hasInitialized","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"ERC1271_INTERFACE_ID","outputs":[{"name":"","type":"bytes4"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_operator","type":"address"},{"name":"_from","type":"address"},{"name":"_tokenId","type":"uint256"},{"name":"_data","type":"bytes"}],"name":"onERC721Received","outputs":[{"name":"","type":"bytes4"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"_hash","type":"bytes32"},{"name":"_signature","type":"bytes"}],"name":"isValidSignature","outputs":[{"name":"","type":"bytes4"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"ERC1271_RETURN_INVALID_SIGNATURE","outputs":[{"name":"","type":"bytes4"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"TRANSFER_ROLE","outputs":[{"name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"_data","type":"bytes"},{"name":"_signature","type":"bytes"}],"name":"isValidSignature","outputs":[{"name":"","type":"bytes4"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"getProtectedTokensLength","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"_script","type":"bytes"}],"name":"getEVMScriptExecutor","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"getRecoveryVault","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"RUN_SCRIPT_ROLE","outputs":[{"name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"SAFE_EXECUTE_ROLE","outputs":[{"name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"REMOVE_PROTECTED_TOKEN_ROLE","outputs":[{"name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_token","type":"address"},{"name":"_value","type":"uint256"}],"name":"deposit","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"constant":true,"inputs":[],"name":"isDepositable","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_hash","type":"bytes32"}],"name":"presignHash","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"DESIGNATE_SIGNER_ROLE","outputs":[{"name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_token","type":"address"}],"name":"removeProtectedToken","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"EXECUTE_ROLE","outputs":[{"name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_token","type":"address"}],"name":"addProtectedToken","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"","type":"address"}],"name":"allowRecoverability","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"appId","outputs":[{"name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[],"name":"initialize","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"","type":"uint256"}],"name":"protectedTokens","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"getInitializationBlock","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"ERC1271_RETURN_VALID_SIGNATURE","outputs":[{"name":"","type":"bytes4"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_token","type":"address"}],"name":"transferToVault","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"_sender","type":"address"},{"name":"_role","type":"bytes32"},{"name":"_params","type":"uint256[]"}],"name":"canPerform","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"getEVMScriptRegistry","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_designatedSigner","type":"address"}],"name":"setDesignatedSigner","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"designatedSigner","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_target","type":"address"},{"name":"_data","type":"bytes"}],"name":"safeExecute","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"PROTECTED_TOKENS_CAP","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"ADD_PRESIGNED_HASH_ROLE","outputs":[{"name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"","type":"bytes32"}],"name":"isPresigned","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_target","type":"address"},{"name":"_ethValue","type":"uint256"},{"name":"_data","type":"bytes"}],"name":"execute","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"_token","type":"address"},{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transfer","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"_sender","type":"address"},{"name":"_evmScript","type":"bytes"}],"name":"canForward","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"kernel","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_evmScript","type":"bytes"}],"name":"forward","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"isPetrified","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"_token","type":"address"}],"name":"balance","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"isForwarder","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"pure","type":"function"},{"payable":true,"stateMutability":"payable","type":"fallback"},{"anonymous":false,"inputs":[{"indexed":true,"name":"sender","type":"address"},{"indexed":true,"name":"target","type":"address"},{"indexed":false,"name":"data","type":"bytes"}],"name":"SafeExecute","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"sender","type":"address"},{"indexed":true,"name":"target","type":"address"},{"indexed":false,"name":"ethValue","type":"uint256"},{"indexed":false,"name":"data","type":"bytes"}],"name":"Execute","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"token","type":"address"}],"name":"AddProtectedToken","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"token","type":"address"}],"name":"RemoveProtectedToken","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"sender","type":"address"},{"indexed":true,"name":"hash","type":"bytes32"}],"name":"PresignHash","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"sender","type":"address"},{"indexed":true,"name":"oldSigner","type":"address"},{"indexed":true,"name":"newSigner","type":"address"}],"name":"SetDesignatedSigner","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"token","type":"address"},{"indexed":true,"name":"operator","type":"address"},{"indexed":true,"name":"from","type":"address"},{"indexed":false,"name":"tokenId","type":"uint256"},{"indexed":false,"name":"data","type":"bytes"}],"name":"ReceiveERC721","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"token","type":"address"},{"indexed":true,"name":"to","type":"address"},{"indexed":false,"name":"amount","type":"uint256"}],"name":"VaultTransfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"token","type":"address"},{"indexed":true,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"}],"name":"VaultDeposit","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"executor","type":"address"},{"indexed":false,"name":"script","type":"bytes"},{"indexed":false,"name":"input","type":"bytes"},{"indexed":false,"name":"returnData","type":"bytes"}],"name":"ScriptResult","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"vault","type":"address"},{"indexed":true,"name":"token","type":"address"},{"indexed":false,"name":"amount","type":"uint256"}],"name":"RecoverToVault","type":"event"}]')
+    aragon_agent = aragon_agent_abi.at(dao.agent)
+
+    evm_script = bytes.fromhex("00000001")
+
+    for address, calldata in actions:
+        agent_calldata = aragon_agent.execute.prepare_calldata(address, 0, calldata)
+
+        length = bytes.fromhex(hex(len(agent_calldata.hex()) // 2)[2:].zfill(8))
+        evm_script = (
+            evm_script
+            + bytes.fromhex(aragon_agent.address[2:])
+            + length
+            + agent_calldata
+        )
+
+    evm_script = HexBytes(evm_script)
+
+    return evm_script
+
+
+def _create_vote(
+        dao: DAOParameters, 
+        actions,
+        description: str,
+        live: bool = False,
+) -> int:
+    logger.info(f"Creating vote in {'live' if live else 'simulation'} mode")
+    
+    # Prepare the EVM script
+    evm_script = _prepare_evm_script(dao, actions)
+    logger.info(f"EVM script prepared: {evm_script.hex()}")
+
+    # For now, use empty string as placeholder
+
+    # Get the voting contract
+    # TODO move abi into file
+    voting_abi = boa.loads_abi(name="AragonVoting", json_str='[{"constant":true,"inputs":[],"name":"hasInitialized","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"minTime","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_voteId","type":"uint256"},{"name":"_yeaPct","type":"uint256"},{"name":"_nayPct","type":"uint256"},{"name":"_executesIfDecided","type":"bool"}],"name":"votePct","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"_script","type":"bytes"}],"name":"getEVMScriptExecutor","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"_sender","type":"address"}],"name":"canCreateNewVote","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"getRecoveryVault","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"MODIFY_QUORUM_ROLE","outputs":[{"name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"_voteId","type":"uint256"},{"name":"_voter","type":"address"}],"name":"getVoterState","outputs":[{"name":"","type":"uint8"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"_voteId","type":"uint256"}],"name":"getVote","outputs":[{"name":"open","type":"bool"},{"name":"executed","type":"bool"},{"name":"startDate","type":"uint64"},{"name":"snapshotBlock","type":"uint64"},{"name":"supportRequired","type":"uint64"},{"name":"minAcceptQuorum","type":"uint64"},{"name":"yea","type":"uint256"},{"name":"nay","type":"uint256"},{"name":"votingPower","type":"uint256"},{"name":"script","type":"bytes"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_minAcceptQuorumPct","type":"uint64"}],"name":"changeMinAcceptQuorumPct","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"MODIFY_SUPPORT_ROLE","outputs":[{"name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"","type":"address"}],"name":"lastCreateVoteTimes","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_supportRequiredPct","type":"uint64"}],"name":"changeSupportRequiredPct","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"token","type":"address"}],"name":"allowRecoverability","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"appId","outputs":[{"name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"ENABLE_VOTE_CREATION","outputs":[{"name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"getInitializationBlock","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"minBalanceUpperLimit","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_minTime","type":"uint256"}],"name":"setMinTime","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"_token","type":"address"}],"name":"transferToVault","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"_sender","type":"address"},{"name":"_role","type":"bytes32"},{"name":"_params","type":"uint256[]"}],"name":"canPerform","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"getEVMScriptRegistry","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_token","type":"address"},{"name":"_supportRequiredPct","type":"uint64"},{"name":"_minAcceptQuorumPct","type":"uint64"},{"name":"_voteTime","type":"uint64"},{"name":"_minBalance","type":"uint256"},{"name":"_minTime","type":"uint256"},{"name":"_minBalanceLowerLimit","type":"uint256"},{"name":"_minBalanceUpperLimit","type":"uint256"},{"name":"_minTimeLowerLimit","type":"uint256"},{"name":"_minTimeUpperLimit","type":"uint256"}],"name":"initialize","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"SET_MIN_BALANCE_ROLE","outputs":[{"name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"minTimeLowerLimit","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"voteTime","outputs":[{"name":"","type":"uint64"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"CREATE_VOTES_ROLE","outputs":[{"name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"_sender","type":"address"},{"name":"","type":"bytes"}],"name":"canForward","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"SET_MIN_TIME_ROLE","outputs":[{"name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"minBalance","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_minBalance","type":"uint256"}],"name":"setMinBalance","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"_voteId","type":"uint256"}],"name":"canExecute","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"_voteId","type":"uint256"},{"name":"_voter","type":"address"}],"name":"canVote","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"kernel","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_executionScript","type":"bytes"},{"name":"_metadata","type":"string"}],"name":"newVote","outputs":[{"name":"voteId","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"_evmScript","type":"bytes"}],"name":"forward","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[],"name":"disableVoteCreationOnce","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"minAcceptQuorumPct","outputs":[{"name":"","type":"uint64"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"isPetrified","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"votesLength","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_voteData","type":"uint256"},{"name":"_supports","type":"bool"},{"name":"_executesIfDecided","type":"bool"}],"name":"vote","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[],"name":"enableVoteCreationOnce","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"minTimeUpperLimit","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"minBalanceLowerLimit","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"enableVoteCreation","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_executionScript","type":"bytes"},{"name":"_metadata","type":"string"},{"name":"_castVote","type":"bool"},{"name":"_executesIfDecided","type":"bool"}],"name":"newVote","outputs":[{"name":"voteId","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"_voteId","type":"uint256"}],"name":"executeVote","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"supportRequiredPct","outputs":[{"name":"","type":"uint64"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"token","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"PCT_BASE","outputs":[{"name":"","type":"uint64"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"isForwarder","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"pure","type":"function"},{"constant":true,"inputs":[],"name":"DISABLE_VOTE_CREATION","outputs":[{"name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"anonymous":false,"inputs":[{"indexed":true,"name":"voteId","type":"uint256"},{"indexed":true,"name":"creator","type":"address"},{"indexed":false,"name":"metadata","type":"string"},{"indexed":false,"name":"minBalance","type":"uint256"},{"indexed":false,"name":"minTime","type":"uint256"},{"indexed":false,"name":"totalSupply","type":"uint256"},{"indexed":false,"name":"creatorVotingPower","type":"uint256"}],"name":"StartVote","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"voteId","type":"uint256"},{"indexed":true,"name":"voter","type":"address"},{"indexed":false,"name":"supports","type":"bool"},{"indexed":false,"name":"stake","type":"uint256"}],"name":"CastVote","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"voteId","type":"uint256"}],"name":"ExecuteVote","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"supportRequiredPct","type":"uint64"}],"name":"ChangeSupportRequired","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"minAcceptQuorumPct","type":"uint64"}],"name":"ChangeMinQuorum","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"minBalance","type":"uint256"}],"name":"MinimumBalanceSet","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"minTime","type":"uint256"}],"name":"MinimumTimeSet","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"executor","type":"address"},{"indexed":false,"name":"script","type":"bytes"},{"indexed":false,"name":"input","type":"bytes"},{"indexed":false,"name":"returnData","type":"bytes"}],"name":"ScriptResult","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"vault","type":"address"},{"indexed":true,"name":"token","type":"address"},{"indexed":false,"name":"amount","type":"uint256"}],"name":"RecoverToVault","type":"event"}]')
+    voting = voting_abi.at(dao.voting)
+    logger.info(f"Voting contract loaded: {voting.address}")
+
+    # Always sim regardless of whether the vote is going live or not
+    with boa.env.prank('0xaE34c9738060137Ab0580587e813d1cfe637F506'):
+        vote_id = voting.newVote(evm_script, "", False, False)
+        logger.info(f"Simulation vote created with ID: {vote_id}")
+
+    # Live voting
+    # Connect to browser wallet
+    if live:
+        vote_description_hash = _pin_to_ipfs(description)
+        logger.info(f"Vote description IPFS hash: {vote_description_hash}")
+        # TODO add support for private key based flows
+        try:
+            boa.set_browser_env()
+        except Exception as e:
+            logger.error(f"Failed to connect to browser wallet: {e}.\nIf you're running this script in a non-browser environment, please use google colab or jupyter notebook.")
+            return None
+        logger.info("Connected to browser wallet")
+
+        vote_id = voting.newVote(evm_script, vote_description_hash, False, False)
+        logger.info(f"Live vote created with ID: {vote_id}")
+
+    return vote_id
+
+
+
+@contextlib.contextmanager
+def vote(
+    dao: DAOParameters,
+    description: str,
+    live: bool = False
+):
+    """
+    A context manager to patch boa's ABIFunction.prepare_calldata that
+    generates a transaction payload.
+
+    Inside the `with` block, any call to a mutable (nonpayable or payable)
+    function on an ABIContract will have its calldata captured. The payload
+    is stored as a list of [target_address, calldata] pairs in the
+    `voting_payloads` dictionary.
+
+    View and pure functions are ignored. 
+    """
+    # TODO forbid unsupported ops like deploying contracts inside
+    # the context manager.
+
+    _original_prepare_calldata = ABIFunction.prepare_calldata
+    _prev_sender = boa.env.eoa
+    boa.env.eoa = dao.agent
+    
+    captured_actions = []
+
+    def _patched_prepare_calldata(self, *args, **kwargs):
+        # 1. Always call the original function first to get the calldata.
+        #    This is crucial, as the calldata must be returned for the
+        #    actual transaction to proceed.
+        calldata = _original_prepare_calldata(self, *args, **kwargs)
+
+        # 2. Check if it's a call to a state changing function.
+        if self.is_mutable:
+            contract_address = str(self.contract.address)
+            
+            # 3. Construct the desired payload.
+            payload = [contract_address, calldata]
+
+            # 4. Append the payload to the list.
+            captured_actions.append(payload)
+
+        # 5. Return the original calldata to ensure the transaction can be
+        #    executed by boa's backend.
+        return calldata
+
+    # The try...finally block ensures that the patch is always removed.
+    try:
+        ABIFunction.prepare_calldata = _patched_prepare_calldata
+        yield 
+
+    finally:
+        ABIFunction.prepare_calldata = _original_prepare_calldata
+        boa.env.eoa = _prev_sender
+        _create_vote(dao, captured_actions, description, live)

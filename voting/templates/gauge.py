@@ -1,8 +1,8 @@
 import re
 import boa
-from src.templates.base import VoteTemplate
-from src.utils.constants import GAUGE_CONTROLLER, get_dao_parameters, DAO
-from src.core.create_vote import create_vote
+from voting.templates.base import VoteTemplate
+from voting.utils.constants import GAUGE_CONTROLLER, get_dao_parameters, DAO
+from voting.core.create_vote import create_vote
 
 class AddGauge(VoteTemplate):
     """Add a new gauge to the Curve DAO"""

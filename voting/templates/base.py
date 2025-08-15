@@ -1,4 +1,4 @@
-from src.core.vote import Vote
+from voting.core.vote import Vote
 
 class VoteTemplate(Vote):
     """Base class for all vote templates"""
