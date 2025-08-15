@@ -5,7 +5,7 @@ import logging
 from dotenv import load_dotenv
 from hexbytes import HexBytes
 from boa.contracts.abi.abi_contract import ABIFunction
-from voting.config import DAOParameters
+from voting.config import CONVEX_VOTER_PROXY, DAOParameters
 from requests import request
 import hashlib
 import json
@@ -38,8 +38,8 @@ def _pin_to_ipfs(description: str) -> str:
     if description_hash in cache:
         ipfs_hash = cache[description_hash]
         logger.info(f"Found cached IPFS hash for description: {ipfs_hash}")
-        return ipfs_hash
-    
+        return f"ipfs:{ipfs_hash}"
+
     pinata_token = os.getenv("PINATA_JWT")
     if not pinata_token:
         raise ValueError("PINATA_JWT environment variable is required")
@@ -74,8 +74,8 @@ def _pin_to_ipfs(description: str) -> str:
         logger.info(f"Cached IPFS hash for future use")
     except IOError as e:
         logger.warning(f"Could not save IPFS cache: {e}")
-    
-    return ipfs_hash
+
+    return f"ipfs:{ipfs_hash}"
 
 
 def _prepare_evm_script(dao: DAOParameters, actions):
@@ -122,9 +122,25 @@ def _create_vote(
     logger.info(f"Voting contract loaded: {voting.address}")
 
     # Always sim regardless of whether the vote is going live or not
-    with boa.env.prank('0xaE34c9738060137Ab0580587e813d1cfe637F506'):
-        vote_id = voting.newVote(evm_script, "", False, False)
-        logger.info(f"Simulation vote created with ID: {vote_id}")
+    vote_id = voting.newVote(evm_script, "", False, False, sender=CONVEX_VOTER_PROXY)
+    logger.info(f"According to simulation vote will be at ID: {vote_id}")
+
+    logger.info("Simulating Vote")
+    logger.info(f"Vote stats before Convex Vote: {voting.getVote(vote_id)}")
+    logger.info("Simulate Convex 'yes' vote")
+    voting.canVote(vote_id, CONVEX_VOTER_PROXY)
+    with boa.env.prank(CONVEX_VOTER_PROXY):
+        voting.vote(vote_id, True, False)
+
+    boa.env.time_travel(seconds=voting.voteTime())
+
+    logger.info(f"Vote stats after 1 week: {voting.getVote(vote_id)}")
+
+    logger.info("Simulate proposal execution")
+    assert voting.canExecute(vote_id)
+    voting.executeVote(vote_id)
+
+    logger.info("Vote Executed!")
 
     # Live voting
     # Connect to browser wallet
@@ -139,11 +155,12 @@ def _create_vote(
             return None
         logger.info("Connected to browser wallet")
 
+        assert voting.canCreateNewVote(boa.env.eoa), "EOA cannot create new vote. Either there isn't enough veCRV balance or EOA created a vote less than 12 hours ago."
+
         vote_id = voting.newVote(evm_script, vote_description_hash, False, False)
         logger.info(f"Live vote created with ID: {vote_id}")
 
     return vote_id
-
 
 
 @contextlib.contextmanager

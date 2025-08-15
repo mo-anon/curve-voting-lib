@@ -34,4 +34,4 @@ for attribute in ['agent', 'voting', 'token']:
 
             
 # TODO maybe keep to use for voting impersonation
-CONVEX_VOTERPROXY = "0x989AEB4D175E16225E39E87D0D97A3360524AD80"
+CONVEX_VOTER_PROXY = "0x989AEB4D175E16225E39E87D0D97A3360524AD80"
