@@ -37,7 +37,7 @@ def _pin_to_ipfs(description: str) -> str:
     # Check if description is already cached
     if description_hash in cache:
         ipfs_hash = cache[description_hash]
-        logger.info(f"Found cached IPFS hash for description: {ipfs_hash}")
+        logger.info(f"Found cached IPFS hash for description.")
         return f"ipfs:{ipfs_hash}"
 
     pinata_token = os.getenv("PINATA_JWT")
@@ -111,7 +111,7 @@ def _create_vote(
     
     # Prepare the EVM script
     evm_script = _prepare_evm_script(dao, actions)
-    logger.info(f"EVM script prepared: {evm_script.hex()}")
+    logger.info(f"EVM script prepared.")
 
     # For now, use empty string as placeholder
 
@@ -133,13 +133,11 @@ def _create_vote(
 
     boa.env.time_travel(seconds=voting.voteTime())
 
-    logger.info(f"Vote stats after 1 week: {voting.getVote(vote_id)}")
-
     logger.info("Simulate proposal execution")
     assert voting.canExecute(vote_id)
     voting.executeVote(vote_id)
 
-    logger.info("Vote Executed!")
+    logger.info("Succesfully simulated vote execution!")
 
     # Live voting
     # Connect to browser wallet
