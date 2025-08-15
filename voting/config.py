@@ -33,5 +33,4 @@ for attribute in ['agent', 'voting', 'token']:
         boa.env.alias(address, name)
 
             
-# TODO maybe keep to use for voting impersonation
 CONVEX_VOTER_PROXY = "0x989AEB4D175E16225E39E87D0D97A3360524AD80"

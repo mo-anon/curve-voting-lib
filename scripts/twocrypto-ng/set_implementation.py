@@ -1,3 +1,6 @@
+import logging
+logging.basicConfig(level=logging.INFO)
+
 import boa
 from voting import vote, OWNERSHIP
 

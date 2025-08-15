@@ -126,7 +126,6 @@ def _create_vote(
     logger.info(f"According to simulation vote will be at ID: {vote_id}")
 
     logger.info("Simulating Vote")
-    logger.info(f"Vote stats before Convex Vote: {voting.getVote(vote_id)}")
     logger.info("Simulate Convex 'yes' vote")
     voting.canVote(vote_id, CONVEX_VOTER_PROXY)
     with boa.env.prank(CONVEX_VOTER_PROXY):
