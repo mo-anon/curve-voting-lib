@@ -1,4 +1,4 @@
-import contextlib
+from contextlib import contextmanager, ExitStack
 import os
 import boa
 import logging
@@ -163,7 +163,7 @@ def _create_vote(
     return vote_id
 
 
-@contextlib.contextmanager
+@contextmanager
 def vote(
     dao: DAOParameters,
     description: str,
@@ -173,48 +173,35 @@ def vote(
     A context manager to patch boa's ABIFunction.prepare_calldata that
     generates a transaction payload.
 
-    Inside the `with` block, any call to a mutable (nonpayable or payable)
-    function on an ABIContract will have its calldata captured. The payload
-    is stored as a list of [target_address, calldata] pairs in the
-    `voting_payloads` dictionary.
+    This context manager also behaves like a prank (where the pranked
+    user is the dao agent) and like an anchor (changes are reverted
+    after the `with` block).
 
-    View and pure functions are ignored. 
+    Inside the `with` block, any call to a mutable function on an
+    ABIContract will have its calldata captured. The payload is
+    stored as a list of [target_address, calldata] pairs.
     """
     # TODO forbid unsupported ops like deploying contracts inside
-    # the context manager.
 
-    _original_prepare_calldata = ABIFunction.prepare_calldata
-    _prev_sender = boa.env.eoa
-    boa.env.eoa = dao.agent
-    
     captured_actions = []
+    _original_prepare_calldata = ABIFunction.prepare_calldata
 
     def _patched_prepare_calldata(self, *args, **kwargs):
-        # 1. Always call the original function first to get the calldata.
-        #    This is crucial, as the calldata must be returned for the
-        #    actual transaction to proceed.
         calldata = _original_prepare_calldata(self, *args, **kwargs)
-
-        # 2. Check if it's a call to a state changing function.
         if self.is_mutable:
             contract_address = str(self.contract.address)
-            
-            # 3. Construct the desired payload.
-            payload = [contract_address, calldata]
-
-            # 4. Append the payload to the list.
-            captured_actions.append(payload)
-
-        # 5. Return the original calldata to ensure the transaction can be
-        #    executed by boa's backend.
+            captured_actions.append([contract_address, calldata])
         return calldata
 
-    # The try...finally block ensures that the patch is always removed.
-    try:
-        ABIFunction.prepare_calldata = _patched_prepare_calldata
-        yield 
+    with ExitStack() as stack:
+        def _cleanup():
+            ABIFunction.prepare_calldata = _original_prepare_calldata
+            _create_vote(dao, captured_actions, description, live)
 
-    finally:
-        ABIFunction.prepare_calldata = _original_prepare_calldata
-        boa.env.eoa = _prev_sender
-        _create_vote(dao, captured_actions, description, live)
+        stack.callback(_cleanup)
+
+        stack.enter_context(boa.env.prank(dao.agent)) 
+        stack.enter_context(boa.env.anchor())         
+        ABIFunction.prepare_calldata = _patched_prepare_calldata
+
+        yield
