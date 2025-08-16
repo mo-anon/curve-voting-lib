@@ -135,7 +135,7 @@ def _generate_preview(dao: DAOParameters, actions):
         preview_blocks.append(block)
 
     # Join each action's preview block with a newline for clear separation
-    print("Voting payload preview: \n")
+    print("Calldata")
     print("\n\n".join(block.strip() for block in preview_blocks))
 
 
@@ -224,6 +224,7 @@ def vote(
     with ExitStack() as stack:
         def _cleanup():
             ABIFunction.prepare_calldata = _original_prepare_calldata
+            print(f"Metadata\n{description}\n")
             _generate_preview(dao, captured_actions)
             _create_vote(dao, captured_actions, description, live)
 
