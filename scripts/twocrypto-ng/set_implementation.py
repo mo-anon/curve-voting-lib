@@ -1,5 +1,6 @@
 import boa
 from voting import vote, abi, OWNERSHIP
+from eth_utils import keccak
 
 boa.fork("http://100.124.213.109:8545")
 factory = abi.twocrypto_ng_mainnet_factory.at("0x98EE851a00abeE0d95D08cF4CA2BdCE32aeaAF7F")
@@ -7,17 +8,20 @@ factory = abi.twocrypto_ng_mainnet_factory.at("0x98EE851a00abeE0d95D08cF4CA2BdCE
 
 with vote(
     OWNERSHIP,
-    "Add a new implementation of twocrypto-ng pools adapted for yield basis.",
+    "[twocrypto] Add implementations for donations-enabled pools (yb, fx, etc)",
     live=True
 ):
-    addy = boa.env.generate_address()
-    id = 123 
-    factory.set_pool_implementation(addy, id)
-    factory.set_pool_implementation(addy, id)
 
-    assert factory.pool_implementations(id) == addy
+    factory.set_pool_implementation(
+        yb_pool:="0x986fAfB173801D9F82a01d9FfD71f1e1c080D2c2",
+        yb_hash:=int.from_bytes(keccak(b'yb'), 'big')
+    )
+
+    factory.set_pool_implementation(
+        donations_pool:="0xbab4CA419DF4e9ED96435823990C64deAD976a9F",
+        donations_hash:=int.from_bytes(keccak(b'donations'), 'big')
+    )
+
+    assert factory.pool_implementations(yb_hash) == yb_pool
+    assert factory.pool_implementations(donations_hash) == donations_pool
         
-
-
-
-
