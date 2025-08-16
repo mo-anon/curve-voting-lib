@@ -1,11 +1,5 @@
-import os
-import sys
 import pytest
 
-# Add the project root to Python path
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
 
 from voting.core.config import get_config
 from voting.templates.gauge import AddGauge
@@ -77,8 +71,4 @@ def test_valid_new_gauge(config, fork_chain):
     )
     is_valid = gauge_vote.validate()
     assert is_valid, "Validation should pass for valid new gauge"
-
-if __name__ == "__main__":
-    import pytest
-    pytest.main([__file__])
 

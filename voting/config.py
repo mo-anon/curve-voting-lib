@@ -34,3 +34,4 @@ for attribute in ['agent', 'voting', 'token']:
 
             
 CONVEX_VOTER_PROXY = "0x989AEB4D175E16225E39E87D0D97A3360524AD80"
+boa.env.alias(CONVEX_VOTER_PROXY, "convex")

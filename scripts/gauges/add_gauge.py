@@ -1,32 +1,28 @@
-import sys
-import argparse
-from voting.core.config import get_config
-from voting.templates.gauge import AddGauge
+import boa
+from voting import vote, abi, OWNERSHIP
 
-def main():
-    parser = argparse.ArgumentParser(description="Add a gauge to the Gauge Controller")
-    parser.add_argument('--calldata', action='store_true', help='Return the EVM script (calldata) for the vote')
-    parser.add_argument('--gauge-address', type=str, default="0xeB896fB7D1AaE921d586B0E5a037496aFd3E2412", help='Gauge address to add')
-    args = parser.parse_args()
+# Configuration
+# TODO remove tailnet ip
+RPC_URL = "http://100.124.213.109:8545"  # Replace with your RPC URL
+gauge_controller = abi.gauge_controller.at("0x2F50D538606Fa9EDD2B11E2446BEb18C9D5846bB")
 
-    config = get_config()
+# Gauge parameters
+# TODO add a thin wrapper on top of input to validate evm types
+gauge_to_add = input("Enter the gauge you wish to add to the controller: ")
+WEIGHT = 0  
+TYPE_ID = 0  
+
+boa.fork(RPC_URL)
+
+with vote(
+    OWNERSHIP,
+    f"Add gauge {gauge_to_add} to Gauge Controller with type {TYPE_ID}.",
+    live=False  
+):
+    existing_type = gauge_controller.gauge_types(gauge_to_add)
+    assert existing_type == 0, f"Gauge already exists with type {existing_type}"
     
-    vote = AddGauge(
-        config=config,
-        gauge_address=args.gauge_address,
-        weight=0,
-        type_id=0,
-        description="Add new gauge"
-    )
+    gauge_controller.add_gauge(gauge_to_add, TYPE_ID, WEIGHT)
     
-    if vote.create_vote():
-        print(f"✅ Success! Vote ID: {vote.vote_id}")
-        if args.calldata and vote.calldata:
-            print(f"📄 Calldata: {vote.calldata}")
-    else:
-        print(f"❌ Failed: {vote.error}")
-        sys.exit(1)
-
-if __name__ == "__main__":
-    main()
+    assert gauge_controller.gauge_types(gauge_to_add) == TYPE_ID
 
