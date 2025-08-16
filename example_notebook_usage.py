@@ -7,8 +7,8 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.core.config import get_config
-from src.templates.gauge import AddGauge, KillGauge
+from voting.core.config import get_config
+from voting.templates.gauge import AddGauge, KillGauge
 
 def example_notebook_usage():
     """

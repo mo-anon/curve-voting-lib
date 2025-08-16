@@ -2,6 +2,7 @@
 requires = ["hatchling >= 1.26"]
 build-backend = "hatchling.build"
 
+
 [project]
 name = "curve-voting-lib"
 version = "0.1.0"
@@ -10,19 +11,15 @@ authors = [
 ]
 description = "A Python package to simplify the creation, validation and simulation of Curve DAO votes"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
-    "titanoboa==0.2.3",
+    "titanoboa>=0.2.7",
     "python-dotenv>=1.0.0",
     "hexbytes>=0.3.0",
-    "vyper==0.4.0",
+    "requests>=2.32.4",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src"]
+packages = ["voting"]
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
+

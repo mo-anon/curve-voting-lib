@@ -4,8 +4,8 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.core.config import get_config
-from src.templates.gauge import AddGauge
+from voting.core.config import get_config
+from voting.templates.gauge import AddGauge
 
 def test_basic_functionality():
     """Test basic functionality without complex EVM script generation"""
