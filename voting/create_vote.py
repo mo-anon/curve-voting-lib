@@ -175,7 +175,6 @@ def _create_vote(
     # Live voting
     if live:
         vote_description_hash = _pin_to_ipfs(description)
-        # TODO add support for private key based flows
         try:
             boa.set_browser_env()
         except Exception as e:
@@ -209,7 +208,7 @@ def vote(
     ABIContract will have its calldata captured. The payload is
     stored as a list of [target_address, calldata] pairs.
     """
-    # TODO forbid unsupported ops like deploying contracts inside
+    # TODO forbid ops like deploying contracts inside to keep the vote clean
 
     captured_actions = []
     _original_prepare_calldata = ABIFunction.prepare_calldata
