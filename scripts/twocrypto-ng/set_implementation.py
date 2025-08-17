@@ -1,8 +1,10 @@
+import os
 import boa
 from voting import vote, abi, OWNERSHIP
 from eth_utils import keccak
 
-boa.fork("http://100.124.213.109:8545")
+RPC_URL = os.getenv("RPC_URL")
+boa.fork(RPC_URL)
 factory = abi.twocrypto_ng_mainnet_factory.at("0x98EE851a00abeE0d95D08cF4CA2BdCE32aeaAF7F")
 
 

@@ -1,9 +1,10 @@
+import os
 import boa
 from voting import vote, abi, OWNERSHIP
 
 # Configuration
 # TODO remove tailnet ip
-RPC_URL = "http://100.124.213.109:8545"  # Replace with your RPC URL
+RPC_URL = os.getenv("RPC_URL")
 gauge_controller = abi.gauge_controller.at("0x2F50D538606Fa9EDD2B11E2446BEb18C9D5846bB")
 
 # Gauge parameters
