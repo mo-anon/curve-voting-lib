@@ -7,6 +7,14 @@ RPC_URL = os.getenv("RPC_URL")
 boa.fork(RPC_URL)
 factory = abi.twocrypto_ng_mainnet_factory.at("0x98EE851a00abeE0d95D08cF4CA2BdCE32aeaAF7F")
 
+"""
+The following implementations can be set:
+- set_pool_implementations(address, uint256)
+- set_gauge_implementation(address)
+- set_views_implementation(address)
+- set_math_implementation(address)
+"""
+
 
 with vote(
     OWNERSHIP,
@@ -26,4 +34,4 @@ with vote(
 
     assert factory.pool_implementations(yb_hash) == yb_pool
     assert factory.pool_implementations(donations_hash) == donations_pool
-        
+    
