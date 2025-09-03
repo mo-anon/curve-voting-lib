@@ -8,15 +8,6 @@ boa.fork(RPC_URL)
 pool_address = "0x4f493B7dE8aAC7d55F71853688b1F7C8F0243C85"
 pool = abi.stableswap_ng_mainnet_pool.at(pool_address)
 
-"""
-Fees (denominated in 1e10):
-- new fee must be <= MAX_FEE (5 * 10**9)
-- new offpeg_fee_multiplier must be <= 1e10
-- new offpeg_fee_multiplier * new fee must be <= MAX_FEE * FEE_DENOMINATOR (5 * 10**9 * 1e10 = 5 * 10**19)
-
-e.g. 0.04% fee = 4000000; offpeg_fee_multiplier of 5 = 50000000000
-"""
-
 ts = boa.env.evm.patch.timestamp
 pool_name = pool.name()
 
@@ -31,8 +22,8 @@ with vote(
 ):
 
     pool.set_new_fee(
-        _new_fee:=new_fee,
-        _new_offpeg_fee_multiplier:=new_offpeg_fee_multiplier,
+        _new_fee=new_fee,
+        _new_offpeg_fee_multiplier=new_offpeg_fee_multiplier,
     )
 
     assert pool.fee() == new_fee

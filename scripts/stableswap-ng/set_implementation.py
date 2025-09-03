@@ -8,16 +8,6 @@ boa.fork(RPC_URL)
 
 factory = abi.stableswap_ng_mainnet_factory.at("0x6A8cbed756804B16E05E741eDaBd5cB544AE21bf")
 
-"""
-The following implementations can be set:
-- set_pool_implementations(uint256, address)
-- set_metapool_implementations(uint256, address)
-- set_math_implementation(address)
-- set_gauge_implementation(address)
-- set_views_implementation(address)
-"""
-
-
 with vote(
     OWNERSHIP,
     "[stableswap-factory] Add implementations for ...",
