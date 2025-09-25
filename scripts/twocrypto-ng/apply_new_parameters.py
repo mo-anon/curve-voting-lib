@@ -5,17 +5,17 @@ from voting import vote, abi, OWNERSHIP
 RPC_URL = os.getenv("RPC_URL")
 boa.fork(RPC_URL)
 
-pool_address = '0xee351f12eae8c2b8b9d1b9bfd3c5dd565234578d'
+pool_address = "0xee351f12eae8c2b8b9d1b9bfd3c5dd565234578d"
 pool = abi.twocrypto_ng_mainnet_pool.at(pool_address)
 pool_name = pool.name()
-
 
 new_mid_fee = 26000000
 new_out_fee = 45000000
 new_fee_gamma = 230000000000000
 new_allowed_extra_profit = 2000000000000
 new_adjustment_step = 146000000000000
-new_ma_time = 880           # new_ma_time = ma_time / ln(2); setting new_ma_time to 880 means new_ma_time = 880 * ln(2) = 610
+new_ma_time = 880  # new_ma_time = ma_time / ln(2); setting new_ma_time to 880 means new_ma_time = 880 * ln(2) = 610
+
 
 with vote(
     OWNERSHIP,

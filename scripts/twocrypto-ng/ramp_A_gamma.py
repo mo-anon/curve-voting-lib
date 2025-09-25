@@ -5,9 +5,8 @@ from voting import vote, abi, OWNERSHIP
 RPC_URL = os.getenv("RPC_URL")
 boa.fork(RPC_URL)
 
-pool_address = '0xee351f12eae8c2b8b9d1b9bfd3c5dd565234578d'
+pool_address = "0xee351f12eae8c2b8b9d1b9bfd3c5dd565234578d"
 pool = abi.twocrypto_ng_mainnet_pool.at(pool_address)
-
 
 DAY = 86400
 WEEK = 604800
@@ -16,8 +15,8 @@ future_A = 400000
 future_gamma = 145000000000000
 ramp_time = WEEK + DAY
 ts = boa.env.evm.patch.timestamp
-
 pool_name = pool.name()
+
 
 with vote(
     OWNERSHIP,

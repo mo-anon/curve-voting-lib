@@ -5,9 +5,10 @@ from voting import vote, abi, OWNERSHIP
 RPC_URL = os.getenv("RPC_URL")
 boa.fork(RPC_URL)
 
-pool_address = '0xee351f12eae8c2b8b9d1b9bfd3c5dd565234578d'
+pool_address = "0xee351f12eae8c2b8b9d1b9bfd3c5dd565234578d"
 pool = abi.twocrypto_ng_mainnet_pool.at(pool_address)
 pool_name = pool.name()
+
 
 with vote(
     OWNERSHIP,
