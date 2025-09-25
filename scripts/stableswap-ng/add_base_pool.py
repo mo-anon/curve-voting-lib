@@ -31,5 +31,5 @@ with vote(
     )
 
     assert factory.base_pool_count() == base_pool_count + 1
-    assert factory.base_pool_list(base_pool_count) == base_pool_address     # index starts at 0
+    assert factory.base_pool_list(base_pool_count) == base_pool_address  # index starts at 0
     

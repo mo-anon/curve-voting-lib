@@ -14,7 +14,6 @@ WEEK = 604800
 new_A = 5000
 ramp_time = WEEK + DAY
 ts = boa.env.evm.patch.timestamp
-
 pool_name = pool.name()
 
 
@@ -29,7 +28,7 @@ with vote(
         _future_time=ts + ramp_time,
     )
 
-    assert pool.future_A() == new_A * 100      # need to multiply by 100 because of the precision
+    assert pool.future_A() == new_A * 100  # need to multiply by 100 because of the precision
     assert pool.future_A_time() == ts + ramp_time
 
     boa.env.time_travel(seconds=ramp_time)
