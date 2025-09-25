@@ -10,6 +10,7 @@ controller = abi.lending_controller.at(controller_address)
 
 new_monetary_policy = "0xB7c2d9088C5D327877782e383468eE16df2e2c3d"
 
+
 with vote(
     OWNERSHIP,
     f"[lending] Set new monetary policy of fxSAVE lending market to {new_monetary_policy}.",

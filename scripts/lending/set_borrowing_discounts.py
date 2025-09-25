@@ -18,6 +18,7 @@ some rules:
 new_loan_discount = 19000000000000000
 new_liquidation_discount = 14000000000000000
 
+
 with vote(
     OWNERSHIP,
     f"[lending] Set new borrowing discounts of fxSAVE lending market: loan_discount={new_loan_discount}, liquidation_discount={new_liquidation_discount}.",

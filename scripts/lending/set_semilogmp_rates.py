@@ -8,8 +8,9 @@ boa.fork(RPC_URL)
 semilog_mp = "0xd1671194FC23d1da8e9C2ec4a57c7F5e0957f55b"
 contract = abi.semilog_mp.at(semilog_mp)
 
-new_min_rate = 4631085          # 0.015%
-new_max_rate = 21153444781      # 66.7%
+new_min_rate = 4631085  # 0.015%
+new_max_rate = 21153444781  # 66.7%
+
 
 with vote(
     OWNERSHIP,

@@ -9,7 +9,8 @@ controller_address = "0x5756a035f276a8095a922931f224f4ed06149608"
 controller = abi.lending_controller.at(controller_address)
 amm = abi.lending_amm.at(controller.amm())
 
-new_cb = '0x0000000000000000000000000000000000000000'
+new_cb = "0x0000000000000000000000000000000000000000"
+
 
 with vote(
     OWNERSHIP,

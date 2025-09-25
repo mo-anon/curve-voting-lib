@@ -17,6 +17,7 @@ some rules:
 
 new_amm_fee = 2000000000000000
 
+
 with vote(
     OWNERSHIP,
     f"[lending] Set new fee of {amm.address} to {new_amm_fee}.",
