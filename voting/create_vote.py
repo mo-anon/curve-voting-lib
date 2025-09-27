@@ -180,11 +180,20 @@ def _create_vote(
         except Exception as e:
             logger.error(f"Failed to connect to browser wallet: {e}.\nIf you're running this script in a non-browser environment, please use google colab or jupyter notebook.")
             return None
-        logger.info("Connected to browser wallet")
+        logger.info(f"Connected to browser wallet as {boa.env.eoa}")
+
+        # Refresh the contract binding so calls use the browser environment signer
+        voting = abi.voting.at(dao.voting)
 
         assert voting.canCreateNewVote(boa.env.eoa), "EOA cannot create new vote. Either there isn't enough veCRV balance or EOA created a vote less than 12 hours ago."
 
-        vote_id = voting.newVote(evm_script, vote_description_hash, False, False)
+        vote_id = voting.newVote(
+            evm_script,
+            vote_description_hash,
+            False,
+            False,
+            sender=boa.env.eoa,
+        )
         logger.info(f"Live vote created with ID: {vote_id}")
 
     return vote_id
