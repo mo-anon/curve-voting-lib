@@ -1,5 +1,7 @@
 from contextlib import contextmanager, ExitStack
 import os
+from typing import Optional
+
 import boa
 import logging
 from dotenv import load_dotenv
@@ -13,10 +15,15 @@ from datetime import datetime
 from voting import abi 
 from boa.util.abi import abi_decode
 
+from voting.xgov import BroadcasterFactory
 
 logger = logging.getLogger(__name__)
 load_dotenv()
 
+_ctx: dict = {
+    "dao": None,
+    "prepare_calldata": [],
+}
 
 def _pin_to_ipfs(description: str) -> str:
     # Create cache directory if it doesn't exist
@@ -223,6 +230,8 @@ def vote(
     with ExitStack() as stack:
         def _cleanup():
             ABIFunction.prepare_calldata = _original_prepare_calldata
+            _ctx["dao"] = None
+            _ctx["prepare_calldata"].pop()
             print(f"Metadata\n{description}\n")
             _generate_preview(dao, captured_actions)
             _create_vote(dao, captured_actions, description, live)
@@ -230,7 +239,61 @@ def vote(
         stack.callback(_cleanup)
 
         stack.enter_context(boa.env.prank(dao.agent)) 
-        stack.enter_context(boa.env.anchor())         
+        stack.enter_context(boa.env.anchor())
+        assert not _ctx["dao"], "Already in a vote"
+        _ctx["dao"] = dao
+        _ctx["prepare_calldata"].append(ABIFunction.prepare_calldata)
+        ABIFunction.prepare_calldata = _patched_prepare_calldata
+
+        yield
+
+
+@contextmanager
+def xvote(
+    rpc: str,
+    broadcaster_parameters: Optional[dict]=None,
+):
+    """
+    A context manager to patch boa's ABIFunction.prepare_calldata that
+    generates a transaction payload.
+
+    This context manager also behaves like a prank (where the pranked
+    user is the dao agent) and like an anchor (changes are reverted
+    after the `with` block).
+
+    Inside the `with` block, any call to a mutable function on an
+    ABIContract will have its calldata captured. The payload is
+    stored as a list of [target_address, calldata] pairs.
+    """
+
+    messages = []
+    _original_prepare_calldata = ABIFunction.prepare_calldata
+
+    def _patched_prepare_calldata(self, *args, **kwargs):
+        calldata = _ctx["prepare_calldata"][0](self, *args, **kwargs)
+        if self.is_mutable:
+            contract_address = str(self.contract.address)
+            messages.append((contract_address, calldata))
+        return calldata  # calldata is prepared, but I need gas_used available after execution
+
+    fork_params = {"url": rpc}
+
+    with ExitStack() as stack:
+        broadcaster = None
+
+        def _cleanup():
+            ABIFunction.prepare_calldata = _original_prepare_calldata
+
+            # TODO: how to represent xgov votes?
+            if broadcaster:
+                broadcaster.broadcast(messages, broadcaster_parameters)
+
+        stack.callback(_cleanup)
+
+        stack.enter_context(boa.env.anchor())
+        stack.enter_context(boa.fork(**fork_params))
+        broadcaster = BroadcasterFactory.create_broadcaster(_ctx["dao"], fork_params)
+        stack.enter_context(boa.env.prank(broadcaster.get_agent()))
         ABIFunction.prepare_calldata = _patched_prepare_calldata
 
         yield
