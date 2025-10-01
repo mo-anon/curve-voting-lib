@@ -43,4 +43,4 @@ def test_basic_functionality():
     print("\n🎉 Basic functionality test passed!")
 
 if __name__ == "__main__":
-    test_basic_functionality() 
+    test_basic_functionality()

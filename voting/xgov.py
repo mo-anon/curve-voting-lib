@@ -8,6 +8,8 @@ from voting.config import DAOParameters, OWNERSHIP, PARAMETER
 
 import boa
 
+from voting.context import use_clean_prepare_calldata
+
 # Constants
 EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
 
@@ -103,25 +105,55 @@ CHAIN_CONFIG: Dict[int, Dict[str, Union[BroadcastType, str]]] = {
 }
 
 
+@dataclass
+class ContractInfo:
+    """Contracts should be constructed in environment they are being used."""
+    abi_contract = None
+    address = None
+
+    def __init__(self, abi_contract, address):
+        self.abi_contract = abi_contract
+        self.address = address
+
+    def get(self):
+        return self.abi_contract.at(self.address)
+
+
 class Broadcaster(ABC):
     """Abstract base class for all broadcaster implementations"""
     
-    def __init__(self, chain_id: int, dao_agent: DAOParameters, fork_params, broadcaster):
+    def __init__(self, chain_id: int, dao_agent: DAOParameters, fork_params, broadcaster_info):
+        """Should be already in a forked environment"""
         self.chain_id = chain_id
-        self.dao_agent = dao_agent
         self.fork_params = fork_params  # save Env in case of re-execution
-        self.broadcaster = broadcaster
+        self.broadcaster_info = broadcaster_info
         self.relayer = relayer.at(CHAIN_CONFIG.get(chain_id, {}).get("relayer", ""))
-    
+        assert self.relayer, f"Relayer not known for {chain_id}"
+        self.agent_info = ContractInfo(
+            abi_contract=agent,
+            address=getattr(self.relayer, {
+                OWNERSHIP: "OWNERSHIP_AGENT",
+                PARAMETER: "PARAMETER_AGENT",
+                # EMERGENCY: "EMERGENCY_AGENT",
+            }[dao_agent])(),
+        )
+
     @abstractmethod
     def broadcast(self, messages: List[tuple], params: Optional[BroadcastParams] = None):
         """Broadcast messages with chain-specific logic"""
         pass
 
+    def broadcaster(self):
+        return self.broadcaster_info.get()
+
+    def agent_address(self):
+        return self.agent_info.address
+
     def calculate_relay_gas(self, messages: List[tuple]) -> List[int]:
-        with boa.env.fork(**self.fork_params):
-            agent_ = self.get_agent()
-            return [self._relay_gas(agent_, chunk) for chunk in self._chunk_messages(messages)]
+        with use_clean_prepare_calldata():
+            with boa.fork(**self.fork_params):
+                agent = self.agent_info.get()
+                return [self._relay_gas(agent, chunk) for chunk in self._chunk_messages(messages)]
 
     def _chunk_messages(self, messages: List[tuple], chunk_size: int = 8) -> List[List[tuple]]:
         """Split messages into max possible chunks"""
@@ -132,8 +164,8 @@ class Broadcaster(ABC):
         Considered to be called before Broadcasting to calculate gas usage.
         Better to be done separately to reduce impact from other functionality.
         """
-        with boa.env.prank(self.relayer):
-            boa.env.evm.reset_gas_used()
+        with boa.env.prank(self.relayer.address):
+            # boa.env.evm.reset_gas_used()  TODO
             agent.execute(messages)
             gas = agent.call_trace().gas_used
             return self._relay_gas_extra() + gas
@@ -142,30 +174,26 @@ class Broadcaster(ABC):
         """Gas for messaging infra before relayer hits agent.relay()"""
         return 100_000
 
-    def get_agent(self):
-        agent_address = getattr(self.relayer, {
-            OWNERSHIP: "OWNERSHIP_AGENT",
-            PARAMETER: "PARAMETER_AGENT",
-            # EMERGENCY: "EMERGENCY_AGENT",
-        }[self.dao_agent])()
-        return agent.at(agent_address)
-
 
 class StorageProofsBroadcaster(Broadcaster):
     def broadcast(self, messages: List[tuple], params: Optional[BroadcastParams] = None):
+        broadcaster = self.broadcaster_info.get()
+
         for chunk in self._chunk_messages(messages):
-            self.broadcaster.broadcast(self.chain_id, chunk)
+            broadcaster.broadcast(self.chain_id, chunk)
 
 
 class OptimismBroadcaster(Broadcaster):
     def broadcast(self, messages: List[tuple], params: Optional[BroadcastParams] = None):
-        gas_limits = params.gas_limit if params.gas_limit else self.calculate_relay_gas(messages)
+        broadcaster = self.broadcaster_info.get()
+
+        gas_limits = params.gas_limit if params and params.gas_limit else self.calculate_relay_gas(messages)
         for chunk, gas_limit in zip(self._chunk_messages(messages), gas_limits):
             args = [chunk]
             if gas_limit:
                 args.append(gas_limit)
 
-            self.broadcaster.broadcast(*args)
+            broadcaster.broadcast(*args)
 
     # def _relay_gas_extra(self):  TODO
     #     return ovm_chain.enqueueL2GasPrepaid()
@@ -173,26 +201,30 @@ class OptimismBroadcaster(Broadcaster):
 
 class OptimismGenericBroadcaster(Broadcaster):
     def broadcast(self, messages: List[tuple], params: Optional[BroadcastParams] = None):
+        broadcaster = self.broadcaster_info.get()
+
         destination_data = params.destination_data if params and params.destination_data else None
         if not destination_data:
-            assert self.broadcaster.destination_data(self.chain_id)[2] != EMPTY_ADDRESS, f"No destination_data set for {self.chain_id}"
+            assert broadcaster.destination_data(self.chain_id)[2] != EMPTY_ADDRESS, f"No destination_data set for {self.chain_id}"
 
-        gas_limits = params.gas_limit if params.gas_limit else self.calculate_relay_gas(messages)
+        gas_limits = params.gas_limit if params and params.gas_limit else self.calculate_relay_gas(messages)
         for chunk, gas_limit in zip(self._chunk_messages(messages), gas_limits):
             args = [self.chain_id, chunk, gas_limit or 0]  # always include some gas_limit, so destination_data doesn't occur earlier
             
             if destination_data:
                 args.append(destination_data)
 
-            self.broadcaster.broadcast(*args)
+            broadcaster.broadcast(*args)
 
 
 class ArbitrumBroadcaster(Broadcaster):
     def broadcast(self, messages: List[tuple], params: Optional[BroadcastParams] = None):
-        gas_limits = params.gas_limit if params.gas_limit else self.calculate_relay_gas(messages)
+        broadcaster = self.broadcaster_info.get()
+
+        gas_limits = params.gas_limit if params and params.gas_limit else self.calculate_relay_gas(messages)
         max_fee_per_gas = params.max_fee_per_gas if params and params.max_fee_per_gas else self._max_fee_per_gas()
         for chunk, gas_limit in zip(self._chunk_messages(messages), gas_limits):
-            self.broadcaster.broadcast(chunk, gas_limit, max_fee_per_gas)
+            broadcaster.broadcast(chunk, gas_limit, max_fee_per_gas)
 
     def _max_fee_per_gas(self):
         return 10 ** 9
@@ -200,11 +232,13 @@ class ArbitrumBroadcaster(Broadcaster):
 
 class ArbitrumGenericBroadcaster(Broadcaster):
     def broadcast(self, messages: List[tuple], params: Optional[BroadcastParams] = None):
+        broadcaster = self.broadcaster_info.get()
+
         destination_data = params.destination_data if params and params.destination_data else None
         if not destination_data:
-            assert self.broadcaster.destination_data(self.chain_id)[2] != EMPTY_ADDRESS, f"No destination_data set for {self.chain_id}"
+            assert broadcaster.destination_data(self.chain_id)[2] != EMPTY_ADDRESS, f"No destination_data set for {self.chain_id}"
 
-        gas_limits = params.gas_limit if params.gas_limit else self.calculate_relay_gas(messages)
+        gas_limits = params.gas_limit if params and params.gas_limit else self.calculate_relay_gas(messages)
         max_fee_per_gas = params.max_fee_per_gas if params and params.max_fee_per_gas else self._max_fee_per_gas()
         for chunk, gas_limit in zip(self._chunk_messages(messages), gas_limits):
             args = [self.chain_id, chunk, gas_limit, max_fee_per_gas]
@@ -212,7 +246,7 @@ class ArbitrumGenericBroadcaster(Broadcaster):
             if destination_data:
                 args.append(destination_data)
 
-            self.broadcaster.broadcast(*args)
+            broadcaster.broadcast(*args)
 
     def _max_fee_per_gas(self):
         return 10 ** 9
@@ -220,21 +254,23 @@ class ArbitrumGenericBroadcaster(Broadcaster):
 
 class PolygonZkevmBroadcaster(Broadcaster):
     def broadcast(self, messages: List[tuple], params: Optional[BroadcastParams] = None):
-        """Broadcast using Polygon zkEVM format"""
+        broadcaster = self.broadcaster_info.get()
+
         for chunk in self._chunk_messages(messages):
             args = [chunk]
             if params and params.force_update:
                 args.append(params.force_update)
 
-            self.broadcaster.broadcast(*args)
+            broadcaster.broadcast(*args)
 
 
 class PolygonZkevmGenericBroadcaster(Broadcaster):
     def broadcast(self, messages: List[tuple], params: Optional[BroadcastParams] = None):
-        """Broadcast using Polygon zkEVM generic format"""
+        broadcaster = self.broadcaster_info.get()
+
         destination_data = params.destination_data if params and params.destination_data else None
         if not destination_data:
-            assert self.broadcaster.destination_data(self.chain_id)[1] != EMPTY_ADDRESS, f"No destination_data set for {self.chain_id}"
+            assert broadcaster.destination_data(self.chain_id)[1] != EMPTY_ADDRESS, f"No destination_data set for {self.chain_id}"
 
         for chunk in self._chunk_messages(messages):
             args = [self.chain_id, chunk, params.force_update if params and params.force_update else True]
@@ -242,27 +278,32 @@ class PolygonZkevmGenericBroadcaster(Broadcaster):
             if destination_data:
                 args.append(destination_data)
 
-            self.broadcaster.broadcast(*args)
+            broadcaster.broadcast(*args)
 
 
 class TaikoGenericBroadcaster(Broadcaster):
     def broadcast(self, messages: List[tuple], params: Optional[BroadcastParams] = None):
-        """Broadcast using Taiko generic format"""
+        broadcaster = self.broadcaster_info.get()
+
+        destination_data = params.destination_data if params and params.destination_data else None
+        if not destination_data:
+            assert broadcaster.destination_data(self.chain_id)[1] != EMPTY_ADDRESS, f"No destination_data set for {self.chain_id}"
+
         for chunk in self._chunk_messages(messages):
             args = [self.chain_id, chunk]
-            if params and params.destination_data:
-                args.append(params.destination_data)
+            if destination_data:
+                args.append(destination_data)
 
-            self.broadcaster.broadcast(*args)
+            broadcaster.broadcast(*args)
 
 
 class BroadcasterFactory:
     """Factory for creating broadcaster instances"""
     
     @staticmethod
-    def create_broadcaster(dao_agent: DAOParameters, fork_params) -> Broadcaster:
+    def create_broadcaster(chain_id: int, dao_agent: DAOParameters, fork_params) -> Broadcaster:
         """Create a broadcaster instance based on chain ID and DAO agent"""
-        chain_id = boa.env.get_chain_id()
+        # chain_id = boa.env.get_chain_id()  TODO: fetch for forked environment
         
         # Get chain configuration
         chain_config = CHAIN_CONFIG.get(chain_id)
@@ -286,8 +327,6 @@ class BroadcasterFactory:
         broadcaster_abi = broadcasters.get(broadcaster_type.value)
         if not broadcaster_abi:
             raise ValueError(f"No ABI for broadcaster type {broadcaster_type}")
-        
-        broadcaster_contract = broadcaster_abi.at(broadcaster_address)
         
         # Map broadcaster type to class
         broadcaster_map = {
@@ -314,4 +353,4 @@ class BroadcasterFactory:
         if not broadcaster_class:
             raise ValueError(f"Unsupported broadcaster type: {broadcaster_type}")
         
-        return broadcaster_class(chain_id, dao_agent, fork_params, broadcaster_contract)
+        return broadcaster_class(chain_id, dao_agent, fork_params, ContractInfo(abi_contract=broadcaster_abi, address=broadcaster_address))
