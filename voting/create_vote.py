@@ -247,16 +247,13 @@ def xvote(
     broadcaster_parameters: Optional[dict]=None,
 ):
     """
-    A context manager to patch boa's ABIFunction.prepare_calldata that
-    generates a transaction payload.
+    Works similarly to `vote` and considered to be used inside vote context:
 
-    This context manager also behaves like a prank (where the pranked
-    user is the dao agent) and like an anchor (changes are reverted
-    after the `with` block).
-
-    Inside the `with` block, any call to a mutable function on an
-    ABIContract will have its calldata captured. The payload is
-    stored as a list of [target_address, calldata] pairs.
+    ```py
+    with vote(OWNERSHIP, description="[chain] Set things."):
+        with xvote(252, "chain rpc"):
+            things.set()
+    ```
     """
 
     messages = []
@@ -288,5 +285,15 @@ def xvote(
 
 @contextmanager
 def vote_test():
+    """
+    Context manager to do tests inside a vote context, so they aren't taken into actions.
+
+    ```py
+    with vote(OWNERSHIP, description="Set things."):
+        things.set()
+        with vote_test():
+            things.do_something()
+            assert things.went_as_set()
+    """
     with use_clean_prepare_calldata():
         yield
