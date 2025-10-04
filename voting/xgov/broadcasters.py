@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 
 class BaseBroadcaster:
-    def __init__(self, address: str, *, abi_key: Optional[str] = None):
+    def __init__(self, address: str, abi_key: Optional[str] = None):
         resolved_abi_key = (
             abi_key if abi_key is not None else getattr(type(self), "abi_key", None)
         )
