@@ -1,6 +1,7 @@
+from __future__ import annotations
 from contextlib import contextmanager, ExitStack
 import os
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import boa
 import logging
@@ -16,7 +17,9 @@ from voting import abi
 from boa.util.abi import abi_decode
 
 from voting.context import use_dao, use_prepare_calldata, use_clean_prepare_calldata, get_dao
-from voting.xgov import BroadcasterFactory
+
+if TYPE_CHECKING:
+    from voting.xgov.chains import Chain
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -242,16 +245,18 @@ def vote(
 
 @contextmanager
 def xvote(
-    chain_id: int,
+    chain: Chain,
     rpc: str,
     broadcaster_parameters: Optional[dict]=None,
 ):
     """
-    Works similarly to `vote` and considered to be used inside vote context:
+    Works similarly to `vote` and is intended to be used inside a vote context:
 
     ```py
-    with vote(OWNERSHIP, description="[chain] Set things."):
-        with xvote(252, "chain rpc"):
+    from voting.xgov.chains import FRAXTAL
+
+    with vote(OWNERSHIP, description="[Frax] Set things."):
+        with xvote(FRAXTAL, "https://rpc.frax.com"):
             things.set()
     ```
     """
@@ -267,20 +272,19 @@ def xvote(
         return calldata  # calldata is prepared, but I need gas_used available after execution
 
     fork_params = {"url": rpc, "allow_dirty": True}
-    broadcaster = None
+
+    dao_params = get_dao()
 
     with ExitStack() as stack:
         stack.enter_context(boa.env.anchor())
         stack.enter_context(boa.fork(**fork_params))
-        broadcaster = BroadcasterFactory.create_broadcaster(chain_id, get_dao(), fork_params)
 
-        stack.enter_context(boa.env.prank(broadcaster.agent_address()))
+        stack.enter_context(boa.env.prank(chain.agent_address(dao_params)))
         stack.enter_context(use_prepare_calldata(_patched_prepare_calldata))
 
         yield
     # TODO: how to represent xgov votes?
-    if broadcaster:
-        broadcaster.broadcast(messages, broadcaster_parameters)
+    chain.broadcast(dao_params, fork_params, messages, broadcaster_parameters)
 
 
 @contextmanager
