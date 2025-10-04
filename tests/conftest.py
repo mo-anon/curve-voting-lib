@@ -10,7 +10,7 @@ def fork_chain():
     import boa
 
     boa.fork(
-        f"https://eth-mainnet.alchemyapi.io/v2/{os.environ['WEB3_ETHEREUM_MAINNET_ALCHEMY_PROJECT_ID']}",
+        f"https://eth-mainnet.g.alchemy.com/v2/{os.environ['WEB3_ETHEREUM_MAINNET_ALCHEMY_PROJECT_ID']}",
         allow_dirty=True,
     )  # TODO: should clean also work?
     with boa.env.anchor():
