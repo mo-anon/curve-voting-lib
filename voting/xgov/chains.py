@@ -36,28 +36,28 @@ GNOSIS = Chain(
     id=100,
     rpc=RPC_NOT_SET,
     broadcaster=bd.STORAGE_PROOFS,
-    relayer=ZERO_ADDRESS,
+    relayer="0xe0A1D8C3d243789EC6853b0d00903E70fded32d0",
 )
 
 CORN = Chain(
     id=1001,
     rpc=RPC_NOT_SET,
     broadcaster=bd.STORAGE_PROOFS,
-    relayer=ZERO_ADDRESS,
+    relayer="0x5bcA7dDF1bcccB2eE8e46c56bfc9d3CDC77262bC",
 )
 
 INK = Chain(
     id=200,
     rpc=RPC_NOT_SET,
     broadcaster=bd.STORAGE_PROOFS,
-    relayer=ZERO_ADDRESS,
+    relayer="0x13DFF1809D1E9ddf9Ac901F47817B7F45220A846",
 )
 
 TAC = Chain(
     id=2008,
     rpc=RPC_NOT_SET,
     broadcaster=bd.STORAGE_PROOFS,
-    relayer=ZERO_ADDRESS,
+    relayer="0x5bcA7dDF1bcccB2eE8e46c56bfc9d3CDC77262bC",
 )
 
 FANTOM = Chain(
@@ -71,7 +71,7 @@ POLYGON = Chain(
     id=137,
     rpc=RPC_NOT_SET,
     broadcaster=bd.STORAGE_PROOFS,
-    relayer="0x91e95f16f7F1b988391A869771Ffb50Df4ceBDF7",
+    relayer="0x74d6aABD6197E83d963F0B48be9C034F93E8E66d",
 )
 
 SONIC = Chain(
@@ -85,14 +85,14 @@ XDC = Chain(
     id=50,
     rpc=RPC_NOT_SET,
     broadcaster=bd.STORAGE_PROOFS,
-    relayer=ZERO_ADDRESS,
+    relayer="0x97aDC08FA1D849D2C48C5dcC1DaB568B169b0267",
 )
 
 BSC = Chain(
     id=56,
     rpc=RPC_NOT_SET,
     broadcaster=bd.STORAGE_PROOFS,
-    relayer="0x37b6d6d425438a9f8e40C8B4c06c10560967b678",
+    relayer="0x3B519ae13D7CeB72CC922815f5dAaD741aD5087B",
 )
 
 MOONBEAM = Chain(
@@ -106,7 +106,7 @@ HYPERLIQUID = Chain(
     id=998,
     rpc=RPC_NOT_SET,
     broadcaster=bd.STORAGE_PROOFS,
-    relayer=ZERO_ADDRESS,
+    relayer="0x5bcA7dDF1bcccB2eE8e46c56bfc9d3CDC77262bC",
 )
 
 KAVA = Chain(
@@ -127,28 +127,28 @@ ETHERLINK = Chain(
     id=42793,
     rpc=RPC_NOT_SET,
     broadcaster=bd.STORAGE_PROOFS,
-    relayer=ZERO_ADDRESS,
+    relayer="0xC772063cE3e622B458B706Dd2e36309418A1aE42",
 )
 
 AVALANCHE = Chain(
     id=43114,
     rpc=RPC_NOT_SET,
     broadcaster=bd.STORAGE_PROOFS,
-    relayer="0x3895064FD74a86542206C4c39eb1bf14BB9aF9a6",
+    relayer="0xC6452F058fF4bb248D852C7b5f0E8753B8DbAbda",
 )
 
 AURORA = Chain(
     id=1313161554,
     rpc=RPC_NOT_SET,
     broadcaster=bd.STORAGE_PROOFS,
-    relayer=ZERO_ADDRESS,
+    relayer="0x3c0a405E914337139992625D5100Ea141a9C4d11",
 )
 
 PLUME = Chain(
     id=161221135,
     rpc=RPC_NOT_SET,
     broadcaster=bd.STORAGE_PROOFS,
-    relayer=ZERO_ADDRESS,
+    relayer="0x5bcA7dDF1bcccB2eE8e46c56bfc9d3CDC77262bC",
 )
 
 
