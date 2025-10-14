@@ -64,7 +64,7 @@ FANTOM = Chain(
     id=250,
     rpc=RPC_NOT_SET,
     broadcaster=bd.STORAGE_PROOFS,
-    relayer="0x002599c7D4299A268b332B3240d60308f93C99eC",
+    relayer="0xc0b338DA0fDD43Dc48539837594cf6363795FEeA",
 )
 
 POLYGON = Chain(
@@ -99,7 +99,7 @@ MOONBEAM = Chain(
     id=1284,
     rpc=RPC_NOT_SET,
     broadcaster=bd.STORAGE_PROOFS,
-    relayer=ZERO_ADDRESS,
+    relayer="0x3c0a405E914337139992625D5100Ea141a9C4d11",
 )
 
 HYPERLIQUID = Chain(
@@ -113,14 +113,14 @@ KAVA = Chain(
     id=2222,
     rpc=RPC_NOT_SET,
     broadcaster=bd.STORAGE_PROOFS,
-    relayer="0xA5961898870943c68037F6848d2D866Ed2016bcB",
+    relayer="0x6a2691068C7CbdA03292Ba0f9c77A25F658bAeF5",
 )
 
 CELO = Chain(
     id=42220,
     rpc=RPC_NOT_SET,
     broadcaster=bd.STORAGE_PROOFS,
-    relayer=ZERO_ADDRESS,
+    relayer="0x3c0a405E914337139992625D5100Ea141a9C4d11",
 )
 
 ETHERLINK = Chain(
