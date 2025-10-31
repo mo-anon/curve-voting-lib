@@ -1,3 +1,1 @@
-import boa
-
-ZERO_ADDRESS = boa.eval("empty(address)")
+ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"

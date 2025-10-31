@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional, Sequence, TYPE_CHECKING
 
-from voting.constants import ZERO_ADDRESS
 from voting.config import DAOParameters
 import voting.xgov.broadcasters as bd
 
