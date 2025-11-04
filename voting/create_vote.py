@@ -165,6 +165,7 @@ def _create_vote(
     logger.info(f"Voting contract loaded: {voting.address}")
 
     # Always sim regardless of whether the vote is going live or not
+    print(evm_script)
     vote_id = voting.newVote(evm_script, "", False, False, sender=CONVEX_VOTER_PROXY)
 
     logger.info("Simulating vote creation")
