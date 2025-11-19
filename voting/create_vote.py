@@ -110,7 +110,7 @@ def _generate_preview(dao: DAOParameters, actions):
     def _format_value(value):
         # Human-readable bytes
         if isinstance(value, (bytes, bytearray, memoryview)):
-            return "0x" + bytes(value).hex()
+            return bytes(value).hex()
 
         # Recursive
         if isinstance(value, list):
@@ -135,7 +135,7 @@ def _generate_preview(dao: DAOParameters, actions):
 
         # Format the decoded inputs into a readable string
         inputs_list = [
-            f"('{abi_input['type']}', '{abi_input['name']}', '{value}')"
+            f"('{abi_input['type']}', '{abi_input['name']}', '{_format_value(value)}')"
             for abi_input, value in zip(func._abi['inputs'], decoded_inputs)
         ]
         inputs_str = f"[{', '.join(inputs_list)}]"
