@@ -107,6 +107,18 @@ def _generate_preview(dao: DAOParameters, actions):
     Generates a human-readable preview of the transaction payload.
     This version assumes all actions are valid and decodable.
     """
+    def _format_value(value):
+        # Human-readable bytes
+        if isinstance(value, (bytes, bytearray, memoryview)):
+            return "0x" + bytes(value).hex()
+
+        # Recursive
+        if isinstance(value, list):
+            return [_format_value(v) for v in value]
+        if isinstance(value, dict):
+            return {k: _format_value(v) for k, v in value.items()}
+        return value
+
     preview_blocks = []
     for address, calldata in actions:
         
