@@ -47,7 +47,7 @@ uv run scripts/gauges/add_gauge.py
 ```python
 import os
 import boa
-from voting import vote, abi, OWNERSHIP
+from voting import vote, abi, OWNERSHIP, BrowserEnv
 from eth_utils import keccak
 
 RPC_URL = os.getenv("RPC_URL")
@@ -58,7 +58,7 @@ factory = abi.twocrypto_ng_mainnet_factory.at("0x98EE851a00abeE0d95D08cF4CA2BdCE
 with vote(
     OWNERSHIP,
     "[twocrypto] Add implementations for donations-enabled pools (yb, fx, etc)",
-    live=True
+    live=BrowserEnv(),
 ):
 
     factory.set_pool_implementation(
