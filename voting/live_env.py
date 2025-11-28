@@ -15,7 +15,8 @@ class LiveEnv:
 
 
 class BrowserEnv(LiveEnv):
-    def set(self) -> bool:
+    @staticmethod
+    def set(self=None) -> bool:
         try:
             boa.set_browser_env()
         except Exception as e:
