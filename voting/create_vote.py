@@ -1,10 +1,13 @@
+from __future__ import annotations
 from contextlib import contextmanager, ExitStack
 import os
+from typing import Optional, TYPE_CHECKING
+
 import boa
 import logging
 from dotenv import load_dotenv
 from hexbytes import HexBytes
-from boa.contracts.abi.abi_contract import ABIFunction
+
 from voting.config import CONVEX_VOTER_PROXY, DAOParameters
 from requests import request
 import hashlib
@@ -13,6 +16,10 @@ from datetime import datetime
 from voting import abi 
 from boa.util.abi import abi_decode
 
+from voting.context import use_dao, use_prepare_calldata, use_clean_prepare_calldata, get_dao
+
+if TYPE_CHECKING:
+    from voting.xgov.chains import Chain
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -185,6 +192,9 @@ def _create_vote(
         # Refresh the contract binding so calls use the browser environment signer
         voting = abi.voting.at(dao.voting)
 
+        # Refresh contract binding so calls use the browser environment signer
+        voting = abi.voting.at(dao.voting)
+
         assert voting.canCreateNewVote(boa.env.eoa), "EOA cannot create new vote. Either there isn't enough veCRV balance or EOA created a vote less than 12 hours ago."
 
         vote_id = voting.newVote(
@@ -220,10 +230,10 @@ def vote(
     # TODO forbid ops like deploying contracts inside to keep the vote clean
 
     captured_actions = []
-    _original_prepare_calldata = ABIFunction.prepare_calldata
 
     def _patched_prepare_calldata(self, *args, **kwargs):
-        calldata = _original_prepare_calldata(self, *args, **kwargs)
+        with use_clean_prepare_calldata():
+            calldata = self.prepare_calldata(*args, **kwargs)
         if self.is_mutable:
             contract_address = str(self.contract.address)
             captured_actions.append([contract_address, calldata])
@@ -231,7 +241,6 @@ def vote(
 
     with ExitStack() as stack:
         def _cleanup():
-            ABIFunction.prepare_calldata = _original_prepare_calldata
             print(f"Metadata\n{description}\n")
             _generate_preview(dao, captured_actions)
             _create_vote(dao, captured_actions, description, live)
@@ -239,7 +248,68 @@ def vote(
         stack.callback(_cleanup)
 
         stack.enter_context(boa.env.prank(dao.agent)) 
-        stack.enter_context(boa.env.anchor())         
-        ABIFunction.prepare_calldata = _patched_prepare_calldata
+        stack.enter_context(boa.env.anchor())
+        stack.enter_context(use_dao(dao))
+        stack.enter_context(use_prepare_calldata(_patched_prepare_calldata))
 
+        yield
+
+
+@contextmanager
+def xvote(
+    chain: Chain,
+    rpc: str,
+    broadcaster_parameters: Optional[dict]=None,
+):
+    """
+    Works similarly to `vote` and is intended to be used inside a vote context:
+
+    ```py
+    from voting.xgov.chains import FRAXTAL
+
+    with vote(OWNERSHIP, description="[Frax] Set things."):
+        with xvote(FRAXTAL, "https://rpc.frax.com"):
+            things.set()
+    ```
+    """
+
+    messages = []
+
+    def _patched_prepare_calldata(self, *args, **kwargs):
+        with use_clean_prepare_calldata():
+            calldata = self.prepare_calldata(*args, **kwargs)
+        if self.is_mutable:
+            contract_address = str(self.contract.address)
+            messages.append((contract_address, calldata))
+        return calldata  # calldata is prepared, but I need gas_used available after execution
+
+    fork_params = {"url": rpc, "allow_dirty": True}
+
+    dao_params = get_dao()
+
+    with ExitStack() as stack:
+        stack.enter_context(boa.env.anchor())
+        stack.enter_context(boa.fork(**fork_params))
+
+        stack.enter_context(boa.env.prank(chain.agent_address(dao_params)))
+        stack.enter_context(use_prepare_calldata(_patched_prepare_calldata))
+
+        yield
+    # TODO: how to represent xgov votes?
+    chain.broadcast(dao_params, fork_params, messages, broadcaster_parameters)
+
+
+@contextmanager
+def vote_test():
+    """
+    Context manager to do tests inside a vote context, so they aren't taken into actions.
+
+    ```py
+    with vote(OWNERSHIP, description="Set things."):
+        things.set()
+        with vote_test():
+            things.do_something()
+            assert things.went_as_set()
+    """
+    with use_clean_prepare_calldata():
         yield
