@@ -17,6 +17,7 @@ from voting import abi
 from boa.util.abi import abi_decode
 
 from voting.context import use_dao, use_prepare_calldata, use_clean_prepare_calldata, get_dao
+from voting.live_env import LiveEnv
 
 if TYPE_CHECKING:
     from voting.xgov.chains import Chain
@@ -150,9 +151,9 @@ def _create_vote(
         dao: DAOParameters, 
         actions,
         description: str,
-        live: bool = False,
-) -> int:
-    logger.info(f"Creating vote in {'live' if live else 'simulation'} mode")
+        live_env: Optional[LiveEnv] = None,
+) -> Optional[int]:
+    logger.info(f"Creating vote in {'live' if live_env else 'simulation'} mode")
     
     # Prepare the EVM script
     evm_script = _prepare_evm_script(dao, actions)
@@ -178,19 +179,11 @@ def _create_vote(
     assert voting.canExecute(vote_id)
     voting.executeVote(vote_id)
 
-
     # Live voting
-    if live:
+    if live_env:
         vote_description_hash = _pin_to_ipfs(description)
-        try:
-            boa.set_browser_env()
-        except Exception as e:
-            logger.error(f"Failed to connect to browser wallet: {e}.\nIf you're running this script in a non-browser environment, please use google colab or jupyter notebook.")
+        if not live_env.set():
             return None
-        logger.info(f"Connected to browser wallet as {boa.env.eoa}")
-
-        # Refresh the contract binding so calls use the browser environment signer
-        voting = abi.voting.at(dao.voting)
 
         # Refresh contract binding so calls use the browser environment signer
         voting = abi.voting.at(dao.voting)
@@ -213,7 +206,7 @@ def _create_vote(
 def vote(
     dao: DAOParameters,
     description: str,
-    live: bool = False
+    live_env: Optional[LiveEnv] = None,
 ):
     """
     A context manager to patch boa's ABIFunction.prepare_calldata that
@@ -243,7 +236,7 @@ def vote(
         def _cleanup():
             print(f"Metadata\n{description}\n")
             _generate_preview(dao, captured_actions)
-            _create_vote(dao, captured_actions, description, live)
+            _create_vote(dao, captured_actions, description, live_env)
 
         stack.callback(_cleanup)
 
