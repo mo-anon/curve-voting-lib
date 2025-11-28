@@ -30,7 +30,6 @@ def test_vault_transfer():
         with xvote(FRAXTAL, FRAXTAL.rpc):
             vault = boa.from_etherscan(
                 "0x50eD95CEb917443eE0790Eea97494121CA318a6C",
-                uri="https://api.etherscan.io/v2/api?chainId=252",
                 api_key=os.environ["ETHERSCAN_V2_TOKEN"],
             )
             vault.commit_future_owner(future_owner)
