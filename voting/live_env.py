@@ -36,6 +36,7 @@ class CustomEnv(LiveEnv):
         if self.ask_to_proceed:
             print("Press ENTER to continue..")
             input()
+            print("Proceeding")
 
         try:
             boa.set_network_env(self.rpc)
