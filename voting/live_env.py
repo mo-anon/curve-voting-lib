@@ -23,6 +23,7 @@ class BrowserEnv(LiveEnv):
             logger.error(f"Failed to connect to browser wallet: {e}.")
             return False
         logger.info(f"Connected to browser wallet as {boa.env.eoa}")
+        return True
 
 
 class CustomEnv(LiveEnv):
