@@ -13,8 +13,10 @@ def use_dao(dao: DAOParameters):
     global _dao
     assert not _dao, "DAO is already set"
     _dao = dao
-    yield
-    _dao = None
+    try:
+        yield
+    finally:
+        _dao = None
 
 
 def get_dao() -> DAOParameters:
@@ -26,8 +28,10 @@ def get_dao() -> DAOParameters:
 def use_prepare_calldata(_prepare_calldata):
     prev_prepare_calldata = ABIFunction.prepare_calldata
     ABIFunction.prepare_calldata = _prepare_calldata
-    yield
-    ABIFunction.prepare_calldata = prev_prepare_calldata
+    try:
+        yield
+    finally:
+        ABIFunction.prepare_calldata = prev_prepare_calldata
 
 
 @contextmanager
