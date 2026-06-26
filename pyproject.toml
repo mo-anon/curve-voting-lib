@@ -16,7 +16,7 @@ dependencies = [
     "titanoboa==0.2.8",
     "python-dotenv>=1.0.0",
     "hexbytes>=0.3.0",
-    "requests>=2.32.4",
+    "requests>=2.33.0",
 ]
 
 [tool.hatch.build.targets.wheel]
