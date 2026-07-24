@@ -46,14 +46,14 @@ CORN = Chain(
 )
 
 INK = Chain(
-    id=200,
+    id=57073,
     rpc=RPC_NOT_SET,
     broadcaster=bd.STORAGE_PROOFS,
     relayer="0x900e54EAfE5f05683907a22A0f532D5C25302E1E",
 )
 
 TAC = Chain(
-    id=2008,
+    id=239,
     rpc="https://rpc.tac.build",
     broadcaster=bd.STORAGE_PROOFS,
     relayer="0x900e54EAfE5f05683907a22A0f532D5C25302E1E",
@@ -102,7 +102,7 @@ MOONBEAM = Chain(
 )
 
 HYPERLIQUID = Chain(
-    id=998,
+    id=999,
     rpc=RPC_NOT_SET,
     broadcaster=bd.STORAGE_PROOFS,
     relayer="0x900e54EAfE5f05683907a22A0f532D5C25302E1E",
@@ -144,7 +144,7 @@ AURORA = Chain(
 )
 
 PLUME = Chain(
-    id=161221135,
+    id=98866,
     rpc="https://rpc.plume.org",
     broadcaster=bd.STORAGE_PROOFS,
     relayer="0x900e54EAfE5f05683907a22A0f532D5C25302E1E",
@@ -153,6 +153,13 @@ PLUME = Chain(
 PLASMA = Chain(
     id=9745,
     rpc="https://rpc.plasma.to",
+    broadcaster=bd.STORAGE_PROOFS,
+    relayer="0x900e54EAfE5f05683907a22A0f532D5C25302E1E",
+)
+
+MONAD = Chain(
+    id=143,
+    rpc="https://rpc.monad.xyz",
     broadcaster=bd.STORAGE_PROOFS,
     relayer="0x900e54EAfE5f05683907a22A0f532D5C25302E1E",
 )
