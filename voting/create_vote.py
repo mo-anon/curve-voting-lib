@@ -194,7 +194,7 @@ def _create_vote(
     # Live voting
     if live_env:
         vote_description_hash = _pin_to_ipfs(description)
-        if not live_env.set():
+        if not live_env.set(dao.chain_id):
             return None
 
         # Refresh contract binding so calls use the browser environment signer

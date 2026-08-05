@@ -8,6 +8,7 @@ class DAOParameters():
     voting: str
     token: str
     quorum: int
+    chain_id: int = 1
 
 
 OWNERSHIP = DAOParameters(
