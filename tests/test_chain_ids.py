@@ -2,6 +2,9 @@
 
 Catches drift like INK (declared id=200, live 57073) and HYPERLIQUID (declared id=998,
 live 999) automatically instead of relying on someone noticing by hand.
+
+Only checks chains with `rpc` set in chains.py; a hardcoded fallback endpoint would
+go stale/rate-limit more often than the chain id actually drifts.
 """
 import pytest
 import requests
@@ -9,25 +12,10 @@ import requests
 import voting.xgov.chains as chains_module
 from voting.xgov.chains import Chain, RPC_NOT_SET
 
-# Only consulted when a Chain's own `rpc` field is RPC_NOT_SET.
-FALLBACK_RPC = {
-    "GNOSIS": "https://gnosis-rpc.publicnode.com",
-    "INK": "https://rpc-gel.inkonchain.com",
-    "FANTOM": "https://fantom-rpc.publicnode.com",
-    "POLYGON": "https://polygon-bor-rpc.publicnode.com",
-    "BSC": "https://bsc-rpc.publicnode.com",
-    "MOONBEAM": "https://moonbeam-rpc.publicnode.com",
-    "HYPERLIQUID": "https://rpc.hyperliquid.xyz/evm",
-    "KAVA": "https://kava-evm-rpc.publicnode.com",
-    "CELO": "https://celo-rpc.publicnode.com",
-    "AVALANCHE": "https://avalanche-c-chain-rpc.publicnode.com",
-    "AURORA": "https://mainnet.aurora.dev",
-    "MANTLE": "https://mantle-rpc.publicnode.com",
-    "BASE": "https://base-rpc.publicnode.com",
-}
-
-ALL_CHAINS = {
-    name: obj for name, obj in vars(chains_module).items() if isinstance(obj, Chain)
+CHAINS_WITH_RPC = {
+    name: obj
+    for name, obj in vars(chains_module).items()
+    if isinstance(obj, Chain) and obj.rpc != RPC_NOT_SET
 }
 
 
@@ -51,22 +39,14 @@ def _rpc_call(url, method, params):
         pytest.skip(f"RPC call to {url} failed: {e}")
 
 
-def _resolve_rpc(name, chain):
-    return chain.rpc if chain.rpc != RPC_NOT_SET else FALLBACK_RPC.get(name)
-
-
-@pytest.mark.parametrize("name,chain", sorted(ALL_CHAINS.items()))
+@pytest.mark.parametrize("name,chain", sorted(CHAINS_WITH_RPC.items()))
 def test_chain_matches_live_state(name, chain):
-    rpc = _resolve_rpc(name, chain)
-    if rpc is None:
-        pytest.skip(f"no RPC known for {name}; add one to FALLBACK_RPC or chains.py")
-
-    live_id = int(_rpc_call(rpc, "eth_chainId", []), 16)
+    live_id = int(_rpc_call(chain.rpc, "eth_chainId", []), 16)
     assert live_id == chain.id, (
         f"{name}: chains.py declares id={chain.id}, but live eth_chainId is {live_id}"
     )
 
-    code = _rpc_call(rpc, "eth_getCode", [chain.relayer, "latest"])
+    code = _rpc_call(chain.rpc, "eth_getCode", [chain.relayer, "latest"])
     assert code not in (None, "0x", "0x0"), (
         f"{name}: relayer {chain.relayer} has no bytecode on live chain (id {chain.id})"
     )
