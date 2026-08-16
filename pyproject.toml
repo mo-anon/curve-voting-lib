@@ -14,7 +14,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "titanoboa==0.2.8",
-    "python-dotenv>=1.0.0",
+    "python-dotenv>=1.2.2",
     "hexbytes>=0.3.0",
     "requests>=2.32.4",
 ]
